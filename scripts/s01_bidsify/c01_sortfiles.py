@@ -1,0 +1,57 @@
+# lesson
+# 1. think about how to sort files, what steps need to come first
+# 1. os path
+# 2. glob
+# purpose
+# acq files - haphazardly saved on biopac pc
+# sort and reorder based on BIDS scheme
+
+# %% libraries ___________________________________
+import os 
+import glob
+from pathlib import Path
+import shutil
+
+# %% directories ___________________________________
+current_dir = os.getcwd()
+main_dir = Path(current_dir).parents[1]
+print(main_dir)
+
+# %% get list of files
+files = glob.glob(os.path.join(main_dir, 'sandbox', 'sub-00*','ses-*', '*.acq'))
+for file in files:
+    filename  = os.path.basename(file) # 'ALIGNVIDEOS_spacetop_sub-0056_ses-03_task-alignvideos_ANISO.acq'
+    sub = filename.split('_')[2] # 'sub-0056'
+    ses = filename.split('_')[3] # 'ses-03'
+    task = filename.split('_')[4]
+    print(sub, ses, task)
+    # move accordingly
+    # make a directory, if session folder doesn't exist
+    new_dir = os.path.join(main_dir, 'sandbox', sub, ses)
+    Path(new_dir).mkdir( parents=True, exist_ok=True )
+# after making direrctory, use shutil. to move
+# %%
+# if file doesn't match convention
+# flag it 
+# 1) correct file naming convention - lives in correct folder > skip
+# 2) correct file naming conventino - lives in INcorrect folder
+# 3) incorrect file naming convention - > dump into text file and fix it ourselves
+# 4) number of files - dictionries - for every task, and session
+# %%
+example_file = '/Users/h/Dropbox/projects_dropbox/spacetop_biopac/sandbox/sub-0056/ALIGNVIDEOS_spacetop_sub-0056_ses-01_task-alignvideos_ANISO.acq'
+filename  = os.path.basename(example_file) # 'ALIGNVIDEOS_spacetop_sub-0056_ses-03_task-alignvideos_ANISO.acq'
+sub = filename.split('_')[2] # 'sub-0056'
+ses = filename.split('_')[3] # 'ses-03'
+task = filename.split('_')[4]
+print(sub, ses, task)
+# move accordingly
+# %%make a directory, if session folder doesn't exist
+new_dir = os.path.join(main_dir, 'sandbox', sub, ses)
+print(new_dir, sub, ses)
+
+
+#%%
+Path(new_dir).mkdir( parents=True, exist_ok=True )
+# %%
+shutil.move(example_file, new_dir)
+# %%
