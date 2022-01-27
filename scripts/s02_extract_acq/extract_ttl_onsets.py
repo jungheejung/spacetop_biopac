@@ -10,6 +10,8 @@
 # ** for those runs, we need to manually assign run numbers (biopac will collect back to back)
 # * change main_dir directory when running on discovery
 # TODO: create metadata, of folders and how columns were calculated 
+# * remove unnecessary print statements
+# 
 
 
 
@@ -185,7 +187,7 @@ for acq in acq_list:
                 Path(new_dir).mkdir( parents=True, exist_ok=True )
                 final_df.reset_index(inplace=True)
                 final_df = final_df.rename(columns = {'index':'trial_num'})
-                final_df.to_csv(os.path.join(new_dir, save_filename), index=False))
+                final_df.to_csv(os.path.join(new_dir, save_filename), index=False)
 
         else:
             flaglist.append(acq_list)
