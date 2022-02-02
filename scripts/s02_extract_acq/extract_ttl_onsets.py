@@ -92,25 +92,25 @@ for acq in acq_list:
 
                 run_subset = spacetop_data[df_transition.start_df[run_num]: df_transition.stop_df[run_num]]
                 run_df = run_subset.reset_index()
-                # events :: expect and actual _________________
+                # identify events :: expect and actual _________________
                 start_expect = run_df[run_df['expect'] > run_df[ 'expect'].shift(1)]
                 start_actual = run_df[run_df['actual'] > run_df[ 'actual'].shift(1)]
                 stop_actual= run_df[run_df['actual'] < run_df[ 'actual'].shift(1)]
 
-                # events :: stimulli _________________
+                # identify events :: stimulli _________________
                 start_stim = run_df[run_df['stimuli'] > run_df[ 'stimuli'].shift(1)]
                 stop_stim= run_df[run_df['stimuli'] < run_df[ 'stimuli'].shift(1)]
                 events = nk.events_create(event_onsets=list(start_stim.index), 
                 event_durations = list((stop_stim.index-start_stim.index)/spacetop_samplingrate))
 
-                # events :: transform to onset _________________
+                # transform events :: transform to onset _________________
                 expect_start = start_expect.index/spacetop_samplingrate
                 actual_end = stop_actual.index/spacetop_samplingrate
                 stim_start = start_stim.index/spacetop_samplingrate
                 stim_end = stop_stim.index/spacetop_samplingrate
                 stim_onset = events['onset']/spacetop_samplingrate
 
-                # events:: build pandas dataframe _________________
+                # build pandas dataframe _________________
                 df_onset = pd.DataFrame({
                     'expect_start': expect_start, 
                     'actual_end': actual_end,
@@ -125,10 +125,11 @@ for acq in acq_list:
 
                 final_df = pd.DataFrame()
 
-                # RESOURCE: https://stackoverflow.com/questions/62300474/filter-all-rows-in-a-pandas-dataframe-where-a-given-value-is-between-two-columnv
+                
                 # events :: stimuli
                 # for loop, identify the order of "stimulus events" 
                 # based on information of "expect, actual" events, we will assign a trial number to stimulus events
+                # RESOURCE: https://stackoverflow.com/questions/62300474/filter-all-rows-in-a-pandas-dataframe-where-a-given-value-is-between-two-columnv
                 for i in range(len(df_stim)):
                     idx = pd.IntervalIndex.from_arrays(
                         df_onset['expect_start'], df_onset['actual_end'])
@@ -141,7 +142,7 @@ for acq in acq_list:
                     df_onset.iloc[interval_idx, df_onset.columns.get_loc('stim_end')] = end_val
                     print(f"this is the {i}-th iteration. stim value is {start_val}, and is in between index {interval_idx}")
 
-                # events :: TTL _________________
+                # identify events :: TTL _________________
                 # calculate TTL onsets
                 start_ttl = run_df[run_df['TTL'] > run_df[ 'TTL'].shift(1)]
                 stop_ttl = run_df[run_df['TTL'] < run_df[ 'TTL'].shift(1)]

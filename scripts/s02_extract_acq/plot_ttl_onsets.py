@@ -31,7 +31,7 @@ final_df.reset_index(inplace=True)
 final_df.to_csv('/Users/h/Desktop/biopac_ttl_onset.csv')
 # f"{sub}_{ses}_{task}_{run}_physio-ttl.csv"
 # %% plot
-# 
+# MATPLOTLIB
 from matplotlib.pyplot import figure
 figure(figsize=(6, 20), dpi=300)
 plt.plot(final_df.ttl_r1, final_df.index, linestyle="",marker="o", markersize = 1)
@@ -47,43 +47,13 @@ plt.vlines(9, 0, len(final_df), colors='red', linestyles ="dashed")
 
 
 # %%
-# plotly
+# PLOTLY
 import os, glob
 import plotly 
 import pandas as pd
-final_df = pd.read_csv('/Users/h/Desktop/biopac_ttl_onset.csv')
+import dash_core_components as dcc
 import plotly.express as px
-# %%
-# df = px.data.tips()
-fig = px.histogram(final_df, x="ttl_r2", y=final_df.index,  marginal="rug",
-                   color_discrete_sequence=['purple'],
-                   hover_data=final_df.columns)
-fig = px.histogram(final_df, x="ttl_r3", y=final_df.index,  marginal="rug", 
-color_discrete_sequence=['indianred'],
-                   hover_data=final_df.columns)
-fig.show()
 
-
-# %%
-kwargs = dict(alpha=0.5, bins=500)
-plt.hist(final_df.ttl_r2, **kwargs, color='b')
-plt.hist(final_df.ttl_r3, **kwargs, color='k')
-plt.hist(final_df.ttl_r4, **kwargs, color='r')
-plt.gca().set(title='Frequency Histogram of Diamond Depths', ylabel='Frequency')
-plt.xlim(-5, 20)
-plt.legend();
-# %%
-import seaborn as sns
-plt.figure(figsize=(10,7), dpi= 80)
-sns.distplot(x1, color="dodgerblue", label="Compact", **kwargs)
-sns.distplot(x2, color="orange", label="SUV", **kwargs)
-sns.distplot(x3, color="deeppink", label="minivan", **kwargs)
-plt.xlim(50,75)
-plt.legend();
-
-# Plotly ____________________________________-
-# %% 
-import plotly.express as px
 # %%
 final_df = pd.read_csv('/Users/h/Desktop/biopac_ttl_onset.csv')
 final_df.reset_index(inplace=True)
@@ -121,6 +91,9 @@ for k in lines.keys():
 fig_plotly.update_traces(marker=dict(size=3),
                   selector=dict(mode='markers'),
                   )
+
+
+
 # fig_plotly.add_vline()
 # fig_plotly.add_vline(x=2, line_width=2, line_dash="dash", line_color="red",  exclude_empty_subplots=True, row = 1   )
 # fig_plotly.add_vline(x=7, line_width=2, line_dash="dash", line_color="green")
