@@ -44,6 +44,13 @@ for acq in acq_list:
     sub = [match for match in filename.split('_') if "sub" in match][0]
     ses = [match for match in filename.split('_') if "ses" in match][0] # 'ses-03'
     task = [match for match in filename.split('_') if "task" in match][0]
+
+    entities = dict(
+    match.split('-')
+    for match in dup_fname.split('_')
+    if '-' in match
+    )
+
     try: 
         spacetop_data, spacetop_samplingrate = nk.read_acqknowledge(acq)
 
