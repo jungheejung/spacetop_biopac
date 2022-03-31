@@ -22,7 +22,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import itertools
-import os, shutil, glob
+import os, glob, shutil, datetime
 from pathlib import Path
 import json
 
@@ -37,7 +37,7 @@ save_dir = os.path.join(main_dir, 'biopac', 'dartmouth', 'b03_extract_ttl')
 print(save_dir)
 # %% filename __________________________
 # filename ='/Users/h/Dropbox/projects_dropbox/spacetop_biopac/data/sub-0026/SOCIAL_spacetop_sub-0026_ses-01_task-social_ANISO.acq'
-acq_list = glob.glob(os.path.join(main_dir, 'biopac', 'dartmouth', 'b02_sorted', 'sub-' + ('[0-9]' * 4), '*', '*task-social*_ANISO.acq'), recursive = True)
+acq_list = glob.glob(os.path.join(main_dir, 'biopac', 'dartmouth', 'b02_sorted', 'sub-' + ('[0-9]' * 4), '*', '*task-social*_physio.acq'), recursive = True)
 flaglist = []
 # %%
 for acq in acq_list:
@@ -196,7 +196,7 @@ for acq in acq_list:
     except:
         flaglist.append(acq_list)
 
-txt_filename = os.path.join(save_dir, 'biopac_flaglist.txt')
+txt_filename = os.path.join(save_dir, f'biopac_flaglist_{datetime.date.today().isoformat()}.txt')
 with open(txt_filename, 'w') as f:
     f.write(json.dumps(flaglist))
 
