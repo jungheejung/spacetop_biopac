@@ -40,7 +40,7 @@ print(save_dir)
 acq_list = glob.glob(os.path.join(main_dir, 'biopac', 'dartmouth', 'b02_sorted', 'sub-' + ('[0-9]' * 4), '*', '*task-social*_physio.acq'), recursive = True)
 flaglist = []
 # %%
-for acq in acq_list:
+for acq in sorted(acq_list):
     filename  = os.path.basename(acq)
     sub = [match for match in filename.split('_') if "sub" in match][0]
     ses = [match for match in filename.split('_') if "ses" in match][0] # 'ses-03'
