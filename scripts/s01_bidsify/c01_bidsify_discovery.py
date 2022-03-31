@@ -1,40 +1,40 @@
-import os 
-import glob
+# %%
+import os, glob, re, shutil, datetime
 from pathlib import Path
-import shutil
-import re
 import traceback
-
 
 # %% directories ___________________________________
 current_dir = os.getcwd()
 main_dir = Path(current_dir).parents[1]
+main_dir = '/Volumes/spacetop'
 print(main_dir)
 
 acq_list = glob.glob(os.path.join(main_dir, 'biopac', 'dartmouth', 'rawdata', '**', '*.acq'), recursive = True)
+# %%
 # if __name__ == "__main__":
     # try:
-for acq in acq_list:
+for acq in sorted(acq_list):
     try: 
-        filename  = os.path.basename(acq)
-        sub = [match for match in filename.split('_') if "sub" in match][0] # 'sub-0056'
-        ses = [match for match in filename.split('_') if "ses" in match][0] # 'ses-03'
-        task = [match for match in filename.split('_') if "task" in match][0]
-        # r_sub = re.compile(".*sub")
-        # sub_string = list(filter(r_sub.match, filename.split("_")))
-        # print(sub_string)
-        print(sub, ses, task)
-        new_dir = os.path.join(main_dir, 'biopac', 'dartmouth','b02_sorted', sub, ses)
-        Path(new_dir).mkdir( parents=True, exist_ok=True )
-        shutil.move(acq, new_dir)
+        # filename  = os.path.basename(acq)
+        filename = Path(acq).stem
+
+        entities = dict(
+        match.split('-')
+        for match in filename.split('_')
+        if '-' in match
+        )
+        sub_str = f"sub-{int(entities['sub']):04d}"
+        ses_str = f"ses-{int(entities['ses']):02d}"
+        task_str = f"task-{entities['task']}"
+        print(sub_str, ses_str, entities['task'])
+        dst_fname = f"{sub_str}_{ses_str}_{task_str}_recording-ppg-eda_physio.acq"
+        dst_fpath = os.path.join(main_dir,'biopac','dartmouth','b02_sorted',sub_str,ses_str )
+        Path(dst_fpath).mkdir(parents=True,exist_ok=True )
+        shutil.copy(acq,os.path.join(dst_fpath,dst_fname))
 
     except:
-        with open("exceptions.log", "a") as logfile:
+        with open(f"./exceptions_{datetime.date.today().isoformat()}.log", "a") as logfile:
             traceback.print_exc(file=logfile)
-        # continue
-        # raise
-    # finally:
-        # pass
     
 
 
