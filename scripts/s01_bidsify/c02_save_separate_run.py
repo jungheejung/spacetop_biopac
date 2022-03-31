@@ -47,7 +47,7 @@ for acq in acq_list:
 
     entities = dict(
     match.split('-')
-    for match in dup_fname.split('_')
+    for match in filename.split('_')
     if '-' in match
     )
 
