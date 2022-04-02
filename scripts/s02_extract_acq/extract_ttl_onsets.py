@@ -75,6 +75,10 @@ for acq in sorted(acq_list):
         for r in range(len(start_df)):
             if (stop_df[r]-start_df[r])/2000 < 300:
                 spacetop_data.drop( spacetop_data.index[ start_df[r] : stop_df[r] ], axis=0, inplace=True)
+                # TODO:
+                start_df.pop(r)
+                stop_df.pop(r)
+                # POP item from start_df, stop_df
                 # spacetop_data.at[start_df[r]:stop_df[r], 'run_num'] = r+1
 
         
