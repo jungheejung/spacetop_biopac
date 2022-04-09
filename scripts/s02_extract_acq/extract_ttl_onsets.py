@@ -27,6 +27,7 @@ import os, glob, shutil, datetime
 from pathlib import Path
 import json
 import re
+import logging
 
 __author__ = "Heejung Jung"
 __copyright__ = "Spatial Topology Project"
@@ -37,7 +38,7 @@ __maintainer__ = "Heejung Jung"
 __email__ = "heejung.jung@colorado.edu"
 __status__ = "Development" 
 
-def binarize_channel(data, origin_col, new_col, threshold, binary_h, binary_l):
+def _binarize_channel(data, origin_col, new_col, threshold, binary_h, binary_l):
     """
     data: pandas dataframe. acquisition file
     origin_col: columns with raw signal
@@ -71,91 +72,116 @@ txt_filename = os.path.join(
     save_dir, f'biopac_flaglist_{datetime.date.today().isoformat()}.txt')
 # with open(txt_filename, 'w') as f:
 #     f.write(json.dumps(flaglist))
-f = open(txt_filename, "w")
-print()
+# f = open(txt_filename, "w")
+# logging.basicConfig(filename="logs.log", filemode="w", format="%(name)s -> %(levelname)s: %(message)s")
+
+logging.basicConfig(filename=txt_filename, encoding='utf-8', filemode='w', level=logging.INFO, force = True)
+# print()
 # %%
 for acq in sorted(acq_list):
+    # logging.basicConfig(filename=txt_filename, encoding='utf-8', filemode='w', level=logging.INFO, force = True)
     acq_fname = os.path.basename(acq)
     sub = [match for match in acq_fname.split('_') if "sub" in match][0]
     ses = [match for match in acq_fname.split('_') if "ses" in match][0]  # 'ses-03'
     task = [match for match in acq_fname.split('_') if "task" in match][0]
-    print(f"\n__________________{sub} {ses} {task}__________________", file = f)
+    logging.info(f"__________________{sub} {ses} {task}__________________")
+    # print(f"\n__________________{sub} {ses} {task}__________________", file = f)
     try:
         
         spacetop_data, spacetop_samplingrate = nk.read_acqknowledge(acq)
         # ____________________________________ identify run transitions ____________________________________
-        # %% EV trigger :: identify transitions based on "fMRI Trigger - CBLCFMA - Current Feedba" ev
-        spacetop_data['mr_trigger'] = spacetop_data[
-            'fMRI Trigger - CBLCFMA - Current Feedba'].rolling(window=460 *
-                                                               2).mean()
-        mid_val = (np.max(spacetop_data['mr_trigger']) -
-                   np.min(spacetop_data['mr_trigger'])) / 2
-        binarize_channel(spacetop_data,
-                         origin_col='mr_trigger',
-                         new_col='mr_aniso',
-                         threshold=mid_val,
-                         binary_h=5,
-                         binary_l=0)
-        # spacetop_data.loc[spacetop_data['mr_trigger'] > mid_val,
-        #                   'mr_aniso'] = 5
-        # spacetop_data.loc[spacetop_data['mr_trigger'] <= mid_val,
-        #                   'mr_aniso'] = 0
-        start_df = spacetop_data[spacetop_data['mr_aniso'] >
-                                 spacetop_data['mr_aniso'].shift(1)].index
-        stop_df = spacetop_data[spacetop_data['mr_aniso'] <
-                                spacetop_data['mr_aniso'].shift(1)].index
+        spacetop_data['mr_aniso'] = spacetop_data['fMRI Trigger - CBLCFMA - Current Feedba'].rolling(window=3).mean()
+        _binarize_channel(spacetop_data,
+                            origin_col='mr_aniso',
+                            new_col='spike',
+                            threshold=40,
+                            binary_h=5,
+                            binary_l=0)
+        start_spike = spacetop_data[spacetop_data['spike'] > spacetop_data['spike'].shift(1)].index
+        stop_spike = spacetop_data[spacetop_data['spike'] < spacetop_data['spike'].shift(1)].index
+        print(f"number of spikes within experiment: {len(start_spike)}", file = f)
+        spacetop_data['bin_spike'] = 0
+        spacetop_data.loc[start_spike, 'bin_spike'] = 5
+        # %% EV trigger :: identify transitions based on "trigger" ev 
+        spacetop_data['mr_aniso_boxcar'] = spacetop_data['fMRI Trigger - CBLCFMA - Current Feedba'].rolling(window=2000).mean()
+        mid_val = (np.max(spacetop_data['mr_aniso_boxcar']) -
+                    np.min(spacetop_data['mr_aniso_boxcar'])) / 4
+        _binarize_channel(spacetop_data,
+                            origin_col='mr_aniso_boxcar',
+                            new_col='mr_boxcar',
+                            threshold=mid_val,
+                            binary_h=5,
+                            binary_l=0)
+        start_df = spacetop_data[spacetop_data['mr_boxcar'] > spacetop_data['mr_boxcar'].shift(1)].index
+        stop_df = spacetop_data[spacetop_data['mr_boxcar'] < spacetop_data['mr_boxcar'].shift(1)].index
+        print(f"start_df: {start_df}")
+        print(f"stop_df: {stop_df}")
+        # print(len(start_df))
+        logging.info(f"number of run transitions: {len(start_df)}")
+
+        # _____________ adjust one TR (remove it!)_____________
+        sdf= spacetop_data.copy()
+        sdf.loc[start_df, 'bin_spike'] = 0
+
+        nstart_df = sdf[sdf['bin_spike'] > sdf['bin_spike'].shift(1)].index
+        nstop_df = sdf[sdf['bin_spike'] < sdf['bin_spike'].shift(1)].index
+        # print(nstart_df)
+        # print(nstop_df)
+        logging.info(f"adjusted start_df: {nstart_df}")
+        logging.info(f"adjusted stop_df: {nstop_df}")
+
+        sdf['adjusted_boxcar'] = sdf['bin_spike'].rolling(window=2000).mean()
+        mid_val = (np.max(sdf['adjusted_boxcar']) -
+                    np.min(sdf['adjusted_boxcar'])) / 4
+        _binarize_channel(sdf,
+                            origin_col='adjusted_boxcar',
+                            new_col='adjust_run',
+                            threshold=mid_val,
+                            binary_h=5,
+                            binary_l=0)
+        astart_df = sdf[sdf['adjust_run'] > sdf['adjust_run'].shift(1)].index
+        astop_df = sdf[sdf['adjust_run'] < sdf['adjust_run'].shift(1)].index
+        logging.info(f"adjusted start_df: {astart_df}")
+        logging.info(f"adjusted stop_df: {astop_df}")
+        # sdf.loc[start_df[0]-2:start_df[0]+2, 'fMRI Trigger - CBLCFMA - Current Feedba'] = 0
 
         # %% EV TTL :: identify ttl events based on TTL column
-        spacetop_data['TTL'] = spacetop_data[
-            'TSA2 TTL - CBLCFMA - Current Feedback M'].rolling(
-                window=2000).mean()
-        binarize_channel(spacetop_data,
-                         origin_col='TTL',
-                         new_col='ttl_aniso',
-                         threshold=5,
-                         binary_h=5,
-                         binary_l=0)
-        # spacetop_data.loc[spacetop_data['TTL'] > 5, 'ttl_aniso'] = 5
-        # spacetop_data.loc[spacetop_data['TTL'] <= 5, 'ttl_aniso'] = 0
+        sdf['TTL'] = sdf['TSA2 TTL - CBLCFMA - Current Feedback M'].rolling(window=2000).mean()
+        sdf.loc[sdf['TTL'] > 5, 'ttl_aniso'] = 5
+        sdf.loc[sdf['TTL'] <= 5, 'ttl_aniso'] = 0
 
-        # %% EV stimuli ::
-        mid_val = (np.max(spacetop_data['administer']) -
-                   np.min(spacetop_data['administer'])) / 2
-        binarize_channel(spacetop_data,
-                    origin_col='administer',
-                    new_col='stimuli',
-                    threshold=mid_val,
-                    binary_h=5,
-                    binary_l=0)
-        # spacetop_data.loc[spacetop_data['administer'] > mid_val, 'stimuli'] = 5
-        # spacetop_data.loc[spacetop_data['administer'] <= mid_val,
-        #                   'stimuli'] = 0
+        # %% EV stimuli :: 
+        mid_val = (np.max(sdf['administer']) - np.min(sdf['administer']))/2
+        sdf.loc[sdf['administer'] > mid_val, 'stimuli'] = 5
+        sdf.loc[sdf['administer'] <= mid_val, 'stimuli'] = 0
 
         df_transition = pd.DataFrame({
-            'start_df': start_df,
-            'stop_df': stop_df
+            'start_df': astart_df,
+            'stop_df': astop_df
         })
         # TODO: if run smaller than 300s, drop and remove from pandas
         # POP item from start_df, stop_df
         # spacetop_data.at[start_df[r]:stop_df[r], 'run_num'] = r+1
-        for r in range(len(start_df)):
-            if (stop_df[r] - start_df[r]) / 2000 < 300:
-                spacetop_data.drop(spacetop_data.index[start_df[r]:stop_df[r]],
+        for r in range(len(astart_df)):
+            if (astop_df[r] - astart_df[r]) / 2000 < 300:
+                sdf.drop(sdf.index[astart_df[r]:astop_df[r]],
                                    axis=0,
                                    inplace=True)
-                start_df.pop(r)
-                stop_df.pop(r)
+                astart_df.pop(r)
+                astop_df.pop(r)
 
         # identify runs with TTL signal
         ttl_bool = []; runs_with_ttl = []; new_meta_run_with_ttl = []
-        for r in range(len(start_df)):
-            bool_val = np.unique(spacetop_data.iloc[
+        for r in range(len(astart_df)):
+            bool_val = np.unique(sdf.iloc[
                 df_transition.start_df[r]:df_transition.stop_df[r],
-                spacetop_data.columns.get_loc('ttl_aniso')]).any()
+                sdf.columns.get_loc('ttl_aniso')]).any()
             ttl_bool.append(bool_val)
+            sdf.at[start_df[r]:stop_df[r], 'run_num'] = r+1
 
         acq_runs_with_ttl = [i for i, x in enumerate(ttl_bool) if x]
-        print(f"acq_runs_with_ttl: {acq_runs_with_ttl}")
+        # print(f"acq_runs_with_ttl: {acq_runs_with_ttl}")
+        logging.info(f"acq_runs_with_ttl stop_df: {acq_runs_with_ttl}")
 
         # TODO: check if runs_with_ttl matches the index from the ./social_influence-analysis/data/spacetop_task-social_run-metadata.csv
 
@@ -164,22 +190,24 @@ for acq in sorted(acq_list):
         meta_runs_with_ttl = [int(re.findall('\d+', s)[0])  for s in list(ttl_list_from_meta) ]
         new_meta_run_with_ttl[:] = [m - 1 for m in meta_runs_with_ttl]
 
-        print(f"new_meta_run_with_ttl: {new_meta_run_with_ttl}")
+        # print(f"new_meta_run_with_ttl: {new_meta_run_with_ttl}")
+        logging.info(f"new_meta_run_with_ttl: {new_meta_run_with_ttl}")
         # ____________________________________ identify TTL signals and trials ____________________________________
         # run_len = len(df_transition)
         # if run_len == 6:
         if acq_runs_with_ttl == new_meta_run_with_ttl:
             
-            print(f"runs with ttl: {acq_runs_with_ttl}")
+            
+            # print(f"runs with ttl: {acq_runs_with_ttl}", file = f)
             for i, run_num in enumerate(acq_runs_with_ttl):
-                run_subset = spacetop_data.loc[spacetop_data['run_num'] ==
+                run_subset = sdf.loc[sdf['run_num'] ==
                                                run_num + 1]
-                print(len(run_subset) / 2000)
-                if 300 < len(run_subset)/2000 < 450:  # TODO: check if run length is around 389 s
-                    print(i, run_num)
+                # print(len(run_subset) / spacetop_samplingrate)
+                if 300 < len(run_subset)/spacetop_samplingrate < 450:  # TODO: check if run length is around 389 s
+                    # print(i, run_num)
 
                     run = f"run-{run_num + 1:02d}"
-                    print(run)
+                    # print(run, file = f)
 
                     run_df = run_subset.reset_index()
                     # identify events :: expect and actual _________________
@@ -240,9 +268,9 @@ for acq in sorted(acq_list):
                         df_onset.iloc[
                             interval_idx,
                             df_onset.columns.get_loc('stim_end')] = end_val
-                        print(
-                            f"this is the {i}-th iteration. stim value is {start_val}, and is in between index {interval_idx}"
-                        )
+                        # print(
+                            # f"this is the {i}-th iteration. stim value is {start_val}, and is in between index {interval_idx}"
+                        # )
                     start_ttl = run_df[
                         run_df['ttl_aniso'] > run_df['ttl_aniso'].shift(1)]
                     stop_ttl = run_df[
@@ -268,22 +296,22 @@ for acq in sorted(acq_list):
                         df_onset['expect_start_interval'], adjusted)
                     for i in range(len(ttl_onsets)):
                         val = ttl_onsets[i]  #
-                        print(f"{i}-th value: {val}")
+                        # print(f"{i}-th value: {val}")
                         empty_cols = []
                         interval_idx = df_onset[a_idx.contains(val)].index[
                             0]  #
-                        print(f"\t\t* interval index: {interval_idx}")
+                        # print(f"\t\t* interval index: {interval_idx}")
                         mask = df_ttl.loc[[interval_idx]].isnull()
                         empty_cols = list(
                             itertools.compress(
                                 np.array(df_ttl.columns.to_list()),
                                 mask.values[0]))  #
-                        print(f"\t\t* empty columns: {empty_cols}")
+                        # print(f"\t\t* empty columns: {empty_cols}")
                         df_ttl.loc[df_ttl.index[interval_idx],
                                    str(empty_cols[0])] = val  #
-                        print(
-                            f"\t\t* this is the row where the value -- {val} -- falls. on the {interval_idx}-th row"
-                        )
+                        # print(
+                            # f"\t\t* this is the row where the value -- {val} -- falls. on the {interval_idx}-th row"
+                        # )
 
                     # fdf = pd.concat([df_onset, df_ttl],axis = 1)
                     fdf = pd.merge(df_onset,
@@ -294,35 +322,36 @@ for acq in sorted(acq_list):
                     fdf['ttl_r2'] = fdf['ttl_2'] - fdf['stim_start']
                     fdf['ttl_r3'] = fdf['ttl_3'] - fdf['stim_start']
                     fdf['ttl_r4'] = fdf['ttl_4'] - fdf['stim_start']
+                    fdf['plateau_dur'] = fdf['ttl_r3'] - fdf['ttl_r2']
                     save_filename = f"{sub}_{ses}_{task}_{run}_physio-ttl.csv"
                     new_dir = os.path.join(save_dir, task, sub, ses)
-                    print(f"directory: {new_dir}")
+                    # print(f"directory: {new_dir}", file = f)
+                    
                     Path(new_dir).mkdir(parents=True, exist_ok=True)
                     fdf.reset_index(inplace=True)
                     fdf = fdf.rename(columns={'index': 'trial_num'})
                     fdf.to_csv(os.path.join(new_dir, save_filename),
                                index=False)
-
-                    print(f"[x] success :: saved to {new_dir}")
-                    flaglist.append(f"[x] success :: saved to {new_dir}")
+                    logging.info(f'[x] success :: saved to {new_dir}')
+                    # print(f"[x] success :: saved to {new_dir}", file = f)
                 else:
-                    flaglist.append(
-                        '\nrun length is shorter than 380s or longer than 410s'
-                    )
-                    flaglist.append(acq)
+                    logging.debug(f'run length is shorter than 380s or longer than 410s')
+                    # print(f'\nrun length is shorter than 380s or longer than 410s' ,file = f)
+                    # print(acq, file = f)
         else:
-            print("\n[flag] no runs with TTL or ttl in acquisition file and ttl in metadata does not match")
-            print(acq)
-            flaglist.append("\n[flag] no runs with TTL or ttl in acquisition file and ttl in metadata does not match")
-            flaglist.append(acq)
-            flaglist.append(f"acq_runs_with_ttl: {acq_runs_with_ttl}")
-            flaglist.append(f"new_meta_run_with_ttl: {new_meta_run_with_ttl}")
+            logging.debug('[flag] no runs with TTL or ttl in acquisition file and ttl in metadata does not match')
+            logging.debug(f"check {acq}")
+            logging.debug(f"acq_runs_with_ttl: {acq_runs_with_ttl}")
+            logging.debug(f"new_meta_run_with_ttl: {new_meta_run_with_ttl}")
+            # print("\n[flag] no runs with TTL or ttl in acquisition file and ttl in metadata does not match", file = f)
+            # print(acq, file = f)
+            # print(f"acq_runs_with_ttl: {acq_runs_with_ttl}", file = f)
+            # print(f"new_meta_run_with_ttl: {new_meta_run_with_ttl}", file = f)
     except:
-        flaglist.append('\n[flag] failed to read acquisition file')
-        flaglist.append(acq)
+        logging.error(f"[flag] failed to read acquisition file: {acq}")
+        pass
+        # print('\n[flag] failed to read acquisition file', file = f)
+        # print(acq, file = f)
+    else:
+        logging.info("nothing went wrong")
 
-
-# txt_filename = os.path.join(/scripts/flags', f'biopac_flaglist_{datetime.date.today().isoformat()}.txt')
-# with open(txt_filename, 'w') as f:
-#     f.write(json.dumps(flaglist))
-f.close()
