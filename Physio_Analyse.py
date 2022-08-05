@@ -1,0 +1,224 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Jun  8 16:25:14 2022
+
+@author: isabelneumann
+"""
+# SPACETOP NEUROKIT ANALYSES
+
+##############################################################################
+
+# %% Load packages
+import neurokit2 as nk
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+plt.rcParams['figure.figsize'] = [15, 5]  # Bigger images
+plt.rcParams['font.size']= 14
+
+##############################################################################
+
+# %% Get data
+spacetop_data, spacetop_samplingrate = nk.read_acqknowledge('/Users/isabelneumann/Desktop/CANlab/Heejung/Neurokit/data/biopac_sub-0051-0053/sub-0053/ses-03/SOCIAL_spacetop_sub-0053_ses-03_task-social_ANISO.acq')
+print(spacetop_data.columns)
+bdf = pd.read_csv('/Users/isabelneumann/Desktop/CANlab/Heejung/Neurokit/data/behavioral_sub-0051-0053/sub-0053/ses-03/sub-0053_ses-03_task-social_run-05-vicarious_beh.csv')
+
+# %% Define parameters  
+run_num = 5
+
+# %% Downsample data
+# spacetop_downsample = nk.signal_resample(spacetop_data, sampling_rate=2000, desired_sampling_rate=1000, method="interpolation")
+## losing signal, further analyses don't work, instead: Heejung approach by dividing (see GitHub)
+
+#############################################################################
+
+# %% Organize data: trigger onsets
+mid_val = (np.max(spacetop_data['trigger']) - np.min(spacetop_data['trigger']))/2
+spacetop_data.loc[spacetop_data['trigger'] > mid_val, 'fmri_trigger'] = 5
+spacetop_data.loc[spacetop_data['trigger'] <= mid_val, 'fmri_trigger'] = 0
+
+start_df = spacetop_data[spacetop_data['fmri_trigger'] > spacetop_data['fmri_trigger'].shift(1)].index
+stop_df = spacetop_data[spacetop_data['fmri_trigger'] < spacetop_data['fmri_trigger'].shift(1)].index
+print(start_df)
+print(stop_df)
+
+
+# %% Organize data: transition
+df_transition = pd.DataFrame({
+                        'start_df': start_df, 
+                        'stop_df': stop_df
+                        })
+run_subset = spacetop_data[df_transition.start_df[run_num]: df_transition.stop_df[run_num]]
+run_df = run_subset.reset_index()
+
+##########################################################################################
+
+# %% Process data -> lieber an anderer Stelle und dann noch Vergleich mit "lower level" & Absprache mit Heejung als Punkt bei Google Doc
+run_df_clean, info = nk.bio_process(eda=run_df["Skin Conductance (EDA) - EDA100C-MRI"], 
+                                    ppg=run_df["Pulse (PPG) - PPG100C"],
+                                    sampling_rate = spacetop_samplingrate)
+plot_clean_signal = run_df_clean[["EDA_Tonic", "EDA_Phasic", "PPG_Clean", "PPG_Rate"]].plot(subplots=True)
+
+###########################################################################################
+
+# Expect trigger 
+# %% Start & end of condition 
+expect_start = run_df[run_df['expect'] > run_df['expect'].shift(1)]
+expect_end = run_df[run_df['expect'] < run_df['expect'].shift(1)]
+
+# %% Extract start & end for creating events
+# expect_start_list = expect_start["index"].values.tolist()
+expect_start_list = expect_start.index.tolist()
+print(expect_start_list)
+expect_end_list = expect_end.index.tolist()
+event_labels = [1,2,1,3,5,6,5,4,4,6,2,3] # muss man irgendwie in events reinkriegen 
+
+# %% Define events
+expect_events = nk.events_create(event_onsets = expect_start_list, 
+                                 event_durations = 8000, # brauche ich die Länge überhaupt?
+                                 event_conditions = event_labels)
+print(expect_events)
+
+plot_expect = nk.events_plot(expect_events, run_df_clean['EDA_Clean'])
+plot_eda_expect = nk.events_plot(expect_events, run_df["Skin Conductance (EDA) - EDA100C-MRI"])
+plot_ppg_expect = nk.events_plot(expect_events, run_df["Pulse (PPG) - PPG100C"])
+
+
+# %% Create epochs 
+expect_epochs = nk.epochs_create(run_df_clean, 
+                                 expect_events, 
+                                 sampling_rate = spacetop_samplingrate, 
+                                 epochs_start = -1, epochs_end = 8) # kann man auch end_list nehmen? / aktuell zu kurz um intervalrelated zu machen
+
+plot_epochs_expect = nk.epochs_plot(expect_epochs)
+for epoch in expect_epochs.values():
+    nk.signal_plot(epoch[["EDA_Clean", "SCR_Height"]], 
+    title = epoch['Condition'].values[0],
+    standardize = True)
+    
+# %% Analyze features 
+expect_analysis = nk.bio_analyze(expect_epochs, sampling_rate=spacetop_samplingrate, method="interval-related")
+
+print(expect_analysis)
+expect_analysis.to_csv("results_expect.csv")
+
+# %% reshape pandas from 0 - 11 
+expect_analysis.reset_index(inplace=True)
+
+#%% 
+b_p = pd.merge(expect_analysis, bdf, left_index=True, right_index = True)
+b_p ["sub_id"] = "53"
+b_p.to_csv("firstresults_6.csv")
+
+###############################################################################################
+
+# Administer trigger
+
+# %% Start & end of condition 
+administer_start = run_df[run_df['administer'] > run_df['administer'].shift(1)] # ist expect da doch passender? oder siehe github
+administer_end = run_df[run_df['administer'] < run_df['administer'].shift(1)] 
+# also ist das so zu verstehen dass expect die bed ist und man nur irgendwie als event onset den administer einpflegen muss? 
+
+# %% Extract start & end for creating events
+administer_start_list = administer_start.index.tolist()
+print(administer_start_list)
+administer_end_list = administer_end.index.tolist()
+administer_event_labels = [1,2,1,3,5,6,5,4,4,6,2,3] # muss man irgendwie in events reinkriegen 
+
+# %% Define events
+administer_events = nk.events_create(event_onsets = administer_start_list, 
+                                    # event_durations = 8000, # brauche ich die Länge überhaupt?
+                                    event_conditions = administer_event_labels)
+print(administer_events) 
+
+plot_eda_administer = nk.events_plot(administer_events, spacetop_data["Skin Conductance (EDA) - EDA100C-MRI"])
+plot_ppg_administer = nk.events_plot(administer_events, spacetop_data["Pulse (PPG) - PPG100C"])
+
+
+# %% Create epochs 
+administer_epochs = nk.epochs_create(run_df_clean, 
+                                    administer_events, 
+                                    sampling_rate = spacetop_samplingrate, 
+                                    epochs_start = -1, epochs_end = 10) # kann man auch end_list nehmen? / aktuell zu kurz um intervalrelated zu machen
+
+plot_epochs_administer = nk.epochs_plot(administer_epochs)
+for epoch in administer_epochs.values():
+    nk.signal_plot(epoch[["EDA_Clean", "SCR_Height"]], 
+    title = epoch['Condition'].values[0],
+    standardize = True)
+
+
+# %% Analyze features 
+administer_analysis = nk.bio_analyze(administer_epochs, 
+                                    sampling_rate=spacetop_samplingrate, 
+                                    method = "event-related")
+
+print(administer_analysis)
+administer_analysis.to_csv("results_administer.csv")
+
+
+# %% reshape pandas from 0 - 11 
+administer_analysis.reset_index(inplace=True)
+
+#%% 
+b_p = pd.merge(administer_analysis, bdf, left_index=True, right_index = True)
+b_p ["sub_id"] = "53"
+b_p.to_csv("firstresults_6.csv")
+
+##################################################################################################
+# %%
+# deeper into ppg: 
+# run_df_ppg, info = nk.ppg_process(spacetop_data["Pulse (PPG) - PPG100C"], 
+                                  # sampling_rate = spacetop_samplingrate)
+
+#spacetop_epochs_ppg = nk.epochs_create(run_df_ppg, 
+                          #spacetop_events, 
+                          #sampling_rate=spacetop_samplingrate, 
+                          #epochs_start=-1, epochs_end=8)
+
+#df_ppg = nk.ppg_intervalrelated(run_df_ppg, sampling_rate = spacetop_samplingrate)
+
+#for epoch in spacetop_epochs.values():
+    # Plot scaled signals
+    #nk.signal_plot(epoch[['Skin Conductance (EDA) - EDA100C-MRI', 'Pulse (PPG) - PPG100C',"expect"]], 
+                   #title=epoch['Condition'].values[0],  # Extract condition name
+                   #standardize=True) 
+
+
+# spacetop_events = nk.events_find(event_channel = run_df['expect'],
+                                 #start_at = start_list, 
+                                 #end_at = end_list,
+                                # event_labels = event_labels)
+
+
+# irgendwie durch liste durchiterieren?
+
+#plot = nk.events_plot(events_spacetop)
+                                     
+                                     #events = {"onset": []}
+#if start_at>0: 
+    #events_spacetop["onset"] = events_spacetop["onset"][events_spacetop["onset"] >= start_at]
+    
+#if end_at is not None
+    #events_spacetop["onset"] = events_spacetop["onset"][events_spacetop["onset"] <= end_at]
+
+                                 #event_labels = event_labels) 
+
+# mit heejung
+#events_spacetop = nk.events_find(event_channel = run_df['expect'],
+                                 #start_at = expect_start['expect'], 
+                                 #end_at = expect_end['expect'])
+                                 
+ #duration_min = 7900,
+ #duration_max = 8100, 
+
+# plot = nk.events_plot(events, spacetop_data['expect'])
+
+
+
+
+
+
+# %%
