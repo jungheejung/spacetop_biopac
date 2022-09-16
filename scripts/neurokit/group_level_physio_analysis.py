@@ -1,8 +1,10 @@
 ## assuming that we have all of the run-bids formatted acq.
 # load data
-# TODO: append task info (PVC) from metadata
-# TODO: move biopac final data into fmriprep: spacetop_data/data/sub/ses/physio
-# TODO: move behavioral data preprocessed into fmriprep:  spacetop_data/data/sub/ses/beh
+# [x] TODO: append task info (PVC) from metadata
+# [x] TODO: move biopac final data into fmriprep: spacetop_data/data/sub/ses/physio
+# [x] TODO: move behavioral data preprocessed into fmriprep:  spacetop_data/data/sub/ses/beh
+# [ ] TODO:allow to skip broken files
+# [ ] TODO: allow to skip completed files
 # baseline correct
 # filter signal
 # extract mean signals
@@ -26,7 +28,11 @@ from datetime import datetime
 
 pwd = os.getcwd()
 main_dir = Path(pwd).parents[1]
-biopacdata_dir = '/Users/h/Dropbox/projects_dropbox/spacetop_biopac'
+discovery = 1
+if discovery:
+    main_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_biopac/'
+else:
+    main_dir = '/Users/h/Dropbox/projects_dropbox/spacetop_biopac'
 
 sys.path.append(os.path.join(main_dir, 'scripts'))
 sys.path.insert(0,os.path.join(main_dir, 'scripts'))
@@ -34,11 +40,19 @@ print(sys.path)
 
 import utils
 from utils import preprocess
+__author__ = "Heejung Jung"
+__copyright__ = "Spatial Topology Project"
+__credits__ = ["Heejung"] # people who reported bug fixes, made suggestions, etc. but did not actually write the code.
+__license__ = "GPL"
+__version__ = "0.0.1"
+__maintainer__ = "Heejung Jung"
+__email__ = "heejung.jung@colorado.edu"
+__status__ = "Development" 
 
 plt.rcParams['figure.figsize'] = [15, 5]  # Bigger images
 plt.rcParams['font.size'] = 14
 
-# %%
+# %% set parameters
 pwd = os.getcwd()
 # sub-0051_ses-03_run-02
 main_dir = pwd
@@ -47,11 +61,12 @@ main_dir = pwd
 # ses = f"ses-{ses_num:02d}"
 # run = f"run-{run_num-1:02d}"
 flaglist = []
-discovery=0
+discovery=1
 if discovery:
     biopac_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social/data/physio/01_raw-physio'#'/Volumes/spacetop/biopac/dartmouth/b04_finalbids/'
     beh_dir =  '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social/data/beh/d02_preproc-beh'# '/Volumes/spacetop_projects_social/data/d02_preproc-beh'
     cuestudy_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social'
+    log_dir = join(cuestudy_dir, "scripts", "logcenter")
 else:
     biopac_dir = '/Volumes/spacetop_projects_social/data/physio/01_raw-physio'#'/Volumes/spacetop/biopac/dartmouth/b04_finalbids/'
     beh_dir =  '/Volumes/spacetop_projects_social/data/beh/d02_preproc-beh'# '/Volumes/spacetop_projects_social/data/d02_preproc-beh'
@@ -59,7 +74,7 @@ else:
     log_dir = join(cuestudy_dir, "scripts", "logcenter")
 sub_list = []
 biopac_list = next(os.walk(biopac_dir))[1]  
-remove_int = [1, 2, 3, 4, 5, 6]
+remove_int = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 remove_list = [f"sub-{x:04d}" for x in remove_int]
 sub_list = [x for x in biopac_list if x not in remove_list]
 
@@ -72,6 +87,10 @@ date = datetime.now().strftime("%m-%d-%Y")
 txt_filename = os.path.join(
     log_dir, f"s02-biopac_flaglist_{date}.txt"
 )
+
+if os.path.exists(txt_filename):
+    os.remove(txt_filename)
+
 
 formatter = logging.Formatter("%(levelname)s - %(message)s")
 handler = logging.FileHandler(txt_filename)
@@ -93,8 +112,9 @@ logger.setLevel(logging.INFO)
 flag = []
 for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
 
+# check if biopac file exists
     try:
-        print(sub, ses_ind, run_ind)
+        #print(sub, ses_ind, run_ind)
         ses = f"ses-{ses_ind:02d}"
         run = f"run-{run_ind:02d}"
         logger.info(f"\n\n__________________{sub} {ses} {run}__________________")
@@ -106,16 +126,24 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         # with open(join(log_dir, "flag_{date}.txt"), "a") as logfile:
         #     traceback.print_exc(file=logfile)
         continue
+    
+    try:
+        save_dir = join(cuestudy_dir, 'data', 'physio', '02_preproc-physio', sub, ses)
+        phasic_fname = f"{sub}_{ses}_{run}_epochstart-0_epochend-9_physio-phasictonic.csv"
+        if not os.path.exists(join(save_dir, phasic_fname)):
+            pass
+    except:
+        save_dir = join(cuestudy_dir, 'data', 'physio', '02_preproc-physio', sub, ses)
+        phasic_fname = f"{sub}_{ses}_{run}_epochstart-0_epochend-9_physio-phasictonic.csv"
+        logger.warning(f"aborting: this job was complete for {sub}_{ses}_{run}")
+        continue
+# if output derivative already exists, skip loop:
 
 # for physio_fpath in sorted(physio_flist):
     # physio_fpath = physio_flist[0]
     physio_fname = os.path.basename(physio_fpath)
     logger.info({physio_fname})
-    # sub = [match for match in physio_fname.split('_') if "sub" in match][0]
-    # # sub = 'sub-0050'
-    # ses = [match for match in physio_fname.split('_')
-    #         if "ses" in match][0]  # 'ses-03'
-    # run = [match for match in physio_fname.split('_') if "run" in match][0]
+
     task = [match for match in physio_fname.split('_') if "task" in match][0]
 
 
@@ -324,8 +352,8 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
             run_physio = physio_df[[
                 'EDA_corrected_02fixation', 'Pulse (PPG) - PPG100C', 'ttl'
             ]]
-            run_physio
-            plot = nk.events_plot(event_stimuli, run_physio)
+            #run_physio
+            #plot = nk.events_plot(event_stimuli, run_physio)
         else:
             event_stimuli = {
                 'onset': np.array(dict_stimuli['start']),
@@ -337,8 +365,8 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
             run_physio = physio_df[[
                 'EDA_corrected_02fixation', 'Pulse (PPG) - PPG100C', 'stimuli'
             ]]
-            run_physio
-            plot = nk.events_plot(event_stimuli, run_physio)
+            #run_physio
+            #plot = nk.events_plot(event_stimuli, run_physio)
 
 
 
@@ -359,7 +387,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         eda_raw_plot = plt.plot(physio_df["EDA_corrected_02fixation"])
         eda_filters_plot = plt.plot(eda_filters)
         plt.title('baseline_corrected vs. baseline_corrected + filtered signal')
-        plt.show()
+        #plt.show()
 
         # 2)  decompose signla
 
@@ -413,12 +441,20 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
 
         #  concatenate dataframes ____________________________________________________________
         bio_df = pd.concat([physio_df[['trigger', 'fixation', 'cue', 'expect', 'administer', 'actual']],eda_processed], axis =1) 
-        processed_fig = nk.events_plot(event_stimuli, 
-                                        bio_df[['administer', 'EDA_Tonic', 'EDA_Phasic', 'SCR_Peaks' ]])
         fig_save_dir = join(cuestudy_dir, 'data', 'physio', 'qc', sub, ses)
         Path(fig_save_dir).mkdir( parents=True, exist_ok=True )
+
         fig_savename = f"{sub}_{ses}_{run}_physio-edatonic-edaphasic.png"
-        processed_fig.savefig(join(fig_save_dir, fig_savename))
+       # @savefig fig_savename scale=100%
+        #processed_fig = plt.figure()
+        processed_fig = nk.events_plot(event_stimuli, 
+                                        bio_df[['administer', 'EDA_Tonic', 'EDA_Phasic', 'SCR_Peaks' ]])
+        #@suppress
+        #fig = processed_fig[0].get_figure()
+        #processed_fig.savefig(join(fig_save_dir, fig_savename))
+        #processed_fig.show()
+        #plt.close()
+        
         #eda_processed.plot(subplots = True)
 
 
@@ -452,6 +488,12 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
 
     else:
         flaglist.append(f"{sub} {ses} {run}")
+    
+    plt.clf()
 
 
 
+
+
+
+# %%
