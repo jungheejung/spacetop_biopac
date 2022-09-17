@@ -105,7 +105,7 @@ logging.getLogger().addHandler(ch)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-
+print(f"starting logger and for loop")
 # %%
 # beh_fname = glob.glob(join(main_dir, 'data', '*', '*', 'beh', f"*_task-social_*_beh.csv"))[0]
 # sub-0005_ses-01_task-social_run-01_recording-ppg-eda_physio.acq
@@ -189,8 +189,8 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
 
         print(f"baseline using the 6 TR: {baseline_method01}")
         print(f"baseline using fixation from entire run: {baseline_method02}")
-        physio_df['EDA_corrected_01tr'].plot()
-        physio_df['EDA_corrected_02fixation'].plot()
+        #physio_df['EDA_corrected_01tr'].plot()
+        #physio_df['EDA_corrected_02fixation'].plot()
 
         # extract epochs ________________________________________________________________________________
         # extract epochs :: cue
@@ -198,7 +198,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
                                             source_col='cue',
                                             new_col='cue',
                                             threshold=None,
-                                            binary_high=1,
+                                            binary_high=5,
                                             binary_low=0)
         dict_cue = utils.preprocess._identify_boundary(physio_df, 'cue')
         cue_freq = len(dict_cue['start'])
@@ -209,7 +209,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
                                             source_col='expect',
                                             new_col='expectrating',
                                             threshold=None,
-                                            binary_high=1,
+                                            binary_high=5,
                                             binary_low=0)
 
         dict_expectrating = utils.preprocess._identify_boundary(
@@ -223,7 +223,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
                                             source_col='administer',
                                             new_col= event_key,
                                             threshold=None,
-                                            binary_high=1,
+                                            binary_high=5,
                                             binary_low=0)
         dict_stimuli = utils.preprocess._identify_boundary(physio_df, event_key)
         physio_df[physio_df[event_key].diff() != 0].index
@@ -235,7 +235,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
                                             source_col='actual',
                                             new_col='actualrating',
                                             threshold=None,
-                                            binary_high=1,
+                                            binary_high=5,
                                             binary_low=0)
         dict_actualrating = utils.preprocess._identify_boundary(
             physio_df, 'actualrating')
@@ -384,8 +384,8 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
                                     method="butterworth",
                                     order=2)
 
-        eda_raw_plot = plt.plot(physio_df["EDA_corrected_02fixation"])
-        eda_filters_plot = plt.plot(eda_filters)
+        #eda_raw_plot = plt.plot(physio_df["EDA_corrected_02fixation"])
+        #eda_filters_plot = plt.plot(eda_filters)
         plt.title('baseline_corrected vs. baseline_corrected + filtered signal')
         #plt.show()
 
@@ -393,7 +393,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
 
         eda_decomposed = nk.eda_phasic(nk.standardize(eda_filters),
                                     sampling_rate = spacetop_samplingrate)
-        eda_decomposed_plot = eda_decomposed.plot()
+        #eda_decomposed_plot = eda_decomposed.plot()
 
         eda_peaks, info = nk.eda_peaks(eda_decomposed["EDA_Phasic"].values,
                                     sampling_rate = spacetop_samplingrate,
@@ -435,8 +435,8 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
 
         eda_tonic_BL = nk.eda_intervalrelated(eda_epochs_BL)
 
-        plot_eda_phasic = nk.events_plot(event_stimuli, 
-                                        eda_processed[["EDA_Tonic", "EDA_Phasic"]])
+        #plot_eda_phasic = nk.events_plot(event_stimuli, 
+        #                                eda_processed[["EDA_Tonic", "EDA_Phasic"]])
 
 
         #  concatenate dataframes ____________________________________________________________
@@ -484,13 +484,14 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         phasic_meta_df =  pd.concat([metadata_df, eda_phasic_BL],axis = 1)
         phasic_fname = f"{sub}_{ses}_{run}_epochstart-0_epochend-9_physio-phasictonic.csv"
         phasic_meta_df.to_csv(join(save_dir, phasic_fname))
+        print(f"{sub}_{ses}_{run} finished")
+        plt.clf()
 
 
     else:
         flaglist.append(f"{sub} {ses} {run}")
     
-    plt.clf()
-
+    
 
 
 
