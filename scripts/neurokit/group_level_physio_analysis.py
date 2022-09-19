@@ -74,7 +74,8 @@ else:
     log_dir = join(cuestudy_dir, "scripts", "logcenter")
 sub_list = []
 biopac_list = next(os.walk(biopac_dir))[1]  
-remove_int = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+remove_int = [1, 2, 3, 4, 5, 6, 7, 8, 9, 43]
+remove_int = list(np.arange(78))
 remove_list = [f"sub-{x:04d}" for x in remove_int]
 sub_list = [x for x in biopac_list if x not in remove_list]
 
@@ -336,7 +337,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
 
             ttl2 = final_df['ttl_2'].values.tolist()
             plateau_start = np.ceil(ttl2).astype(int)
-            plateau_start
+            #plateau_start
 
         # create a dictionary for neurokit. this will serve as the events
         if task_type == 'pain':
