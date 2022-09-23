@@ -39,16 +39,17 @@ plt.rcParams['font.size'] = 14
 
 # %%
 pwd = os.getcwd()
-# sub-0051_ses-03_run-02
 main_dir = pwd
-# sub_num = 51; ses_num = 3; run_num = 2
-# sub = f"sub-{sub_num:04d}";
-# ses = f"ses-{ses_num:02d}"
-# run = f"run-{run_num-1:02d}"
-biopac_dir = '/Volumes/spacetop/biopac/dartmouth/b04_finalbids/'
-beh_dir = '/Volumes/spacetop_projects_social/data/d02_preproc-beh'
-cuestudy_dir = '/Volumes/spacetop_projects_social/'
-physio_flist = glob.glob(join(biopac_dir, 'task-social',
+discovery=0
+if discovery:
+    biopac_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social/data/physio/01_raw-physio'#'/Volumes/spacetop/biopac/dartmouth/b04_finalbids/'
+    beh_dir =  '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social/data/beh/d02_preproc-beh'# '/Volumes/spacetop_projects_social/data/d02_preproc-beh'
+    cuestudy_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social'
+else:
+    biopac_dir = '/Volumes/spacetop_projects_social/data/physio/01_raw-physio'#'/Volumes/spacetop/biopac/dartmouth/b04_finalbids/'
+    beh_dir =  '/Volumes/spacetop_projects_social/data/beh/d02_preproc-beh'# '/Volumes/spacetop_projects_social/data/d02_preproc-beh'
+    cuestudy_dir = '/Volumes/spacetop_projects_social'  
+physio_flist = glob.glob(join(biopac_dir,
          '*', '*', f"*_task-social_*_recording-ppg-eda_physio.acq"))
 # beh_fname = glob.glob(join(main_dir, 'data', '*', '*', 'beh', f"*_task-social_*_beh.csv"))[0]
 # sub-0005_ses-01_task-social_run-01_recording-ppg-eda_physio.acq
@@ -364,6 +365,15 @@ nk.events_plot(event_stimuli,
                                  bio_df[['administer', 'EDA_Tonic', 'EDA_Phasic', 'SCR_Peaks' ]])
 eda_processed.plot(subplots = True)
 
+# %% concatenate dataframes
+bio_df = pd.concat([physio_df[['trigger', 'fixation', 'cue', 'expect', 'administer', 'actual']],eda_processed], axis =1) 
+processed_fig = nk.events_plot(event_stimuli, 
+                                bio_df[['administer', 'EDA_Tonic', 'EDA_Phasic', 'SCR_Peaks' ]])
+fig_save_dir = join(cuestudy_dir, 'data', 'physio', 'qc', sub, ses)
+Path(fig_save_dir).mkdir( parents=True, exist_ok=True )
+fig_savename = f"{sub}_{ses}_{run}_epochstart--1_epochend-8_physio-edatonic.png"
+processed_fig.savefig(join(fig_save_dir, fig_savename))
+    #eda_processed.plot(subplots = True)
 
 # %% Tonic level __________
 # 1. append columns to the begining (trial order, trial type)
@@ -388,7 +398,8 @@ tonic_df.to_csv(join(save_dir, tonic_fname))
 
 
 # %% Phasic: 
-phasic_meta_df =  pd.concat([metadata_df, eda_phasic_BL], axis = 1)
+
+phasic_meta_df =  pd.concat([metadata_df, eda_phasic_BL],axis = 1)
 phasic_fname = f"{sub}_{ses}_{run}_epochstart-0_epochend-9_physio-phasictonic.csv"
 phasic_meta_df.to_csv(join(save_dir, phasic_fname))
 
