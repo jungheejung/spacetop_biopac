@@ -28,7 +28,7 @@ from datetime import datetime
 
 pwd = os.getcwd()
 main_dir = Path(pwd).parents[1]
-discovery = 1
+discovery = 0
 if discovery:
     main_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_biopac/'
 else:
@@ -61,25 +61,25 @@ main_dir = pwd
 # ses = f"ses-{ses_num:02d}"
 # run = f"run-{run_num-1:02d}"
 flaglist = []
-discovery=1
+
 if discovery:
-    biopac_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social/data/physio/01_raw-physio'#'/Volumes/spacetop/biopac/dartmouth/b04_finalbids/'
+    biopac_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social/data/physio/physio01_raw-physio'#'/Volumes/spacetop/biopac/dartmouth/b04_finalbids/'
     beh_dir =  '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social/data/beh/d02_preproc-beh'# '/Volumes/spacetop_projects_social/data/d02_preproc-beh'
     cuestudy_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social'
     log_dir = join(cuestudy_dir, "scripts", "logcenter")
 else:
-    biopac_dir = '/Volumes/spacetop_projects_social/data/physio/01_raw-physio'#'/Volumes/spacetop/biopac/dartmouth/b04_finalbids/'
+    biopac_dir = '/Volumes/spacetop_projects_social/data/physio/physio01_raw'#'/Volumes/spacetop/biopac/dartmouth/b04_finalbids/'
     beh_dir =  '/Volumes/spacetop_projects_social/data/beh/d02_preproc-beh'# '/Volumes/spacetop_projects_social/data/d02_preproc-beh'
     cuestudy_dir = '/Volumes/spacetop_projects_social' 
     log_dir = join(cuestudy_dir, "scripts", "logcenter")
 sub_list = []
 biopac_list = next(os.walk(biopac_dir))[1]  
-remove_int = [1, 2, 3, 4, 5, 6, 7, 8, 9, 43]
-remove_int = list(np.arange(78))
+remove_int = [1,2,3,4,5,6]
+#remove_int = list(np.arange(78))
 remove_list = [f"sub-{x:04d}" for x in remove_int]
 sub_list = [x for x in biopac_list if x not in remove_list]
-
-ses_list = [1, 3, 4]
+sub_list = ['sub-0029']
+ses_list = [1,3,4]
 run_list = [1,2,3,4,5,6]
 sub_ses = list(itertools.product(sorted(sub_list), ses_list, run_list))
 
@@ -129,12 +129,12 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         continue
     
     try:
-        save_dir = join(cuestudy_dir, 'data', 'physio', '02_preproc-physio', sub, ses)
+        save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', sub, ses)
         phasic_fname = f"{sub}_{ses}_{run}_epochstart-0_epochend-9_physio-phasictonic.csv"
         if not os.path.exists(join(save_dir, phasic_fname)):
             pass
     except:
-        save_dir = join(cuestudy_dir, 'data', 'physio', '02_preproc-physio', sub, ses)
+        save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', sub, ses)
         phasic_fname = f"{sub}_{ses}_{run}_epochstart-0_epochend-9_physio-phasictonic.csv"
         logger.warning(f"aborting: this job was complete for {sub}_{ses}_{run}")
         continue
@@ -415,7 +415,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
 
 
         # TODO: %% eda_epochs_level is the same as eda_epochs_tonic_decomposed. Is there a difference? or is this a matter of being copied over?
-        eda_epochs_BL = nk.epochs_create(eda_processed, 
+        eda_epochs_BL = nk.epochs_create(eda_filters, 
                                         event_stimuli, 
                                         sampling_rate=spacetop_samplingrate, 
                                         epochs_start=0, 
@@ -446,8 +446,6 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         Path(fig_save_dir).mkdir( parents=True, exist_ok=True )
 
         fig_savename = f"{sub}_{ses}_{run}_physio-edatonic-edaphasic.png"
-       # @savefig fig_savename scale=100%
-        #processed_fig = plt.figure()
         processed_fig = nk.events_plot(event_stimuli, 
                                         bio_df[['administer', 'EDA_Tonic', 'EDA_Phasic', 'SCR_Peaks' ]])
         #@suppress
@@ -475,7 +473,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         tonic_df = pd.concat([metadata_tonic,eda_level_timecourse ], axis = 1)
         tonic_meta_df = pd.concat([metadata_df, tonic_df], axis = 1)
         # 
-        save_dir = join(cuestudy_dir, 'data', 'physio', '02_preproc-physio', sub, ses)
+        save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', sub, ses)
         Path(save_dir).mkdir( parents=True, exist_ok=True )
         tonic_fname = f"{sub}_{ses}_{run}_epochstart--1_epochend-8_physio-edatonic.csv"
         tonic_meta_df.to_csv(join(save_dir, tonic_fname))
