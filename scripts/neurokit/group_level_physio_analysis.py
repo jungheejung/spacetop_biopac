@@ -27,7 +27,7 @@ import logging
 from datetime import datetime
 
 cluster = sys.argv[1] 
-slurm_ind = sys.argv[2] 
+slurm_ind = int(sys.argv[2]) 
 pwd = os.getcwd()
 main_dir = Path(pwd).parents[1]
 #discovery = 0
