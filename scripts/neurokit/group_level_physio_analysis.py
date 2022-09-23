@@ -26,10 +26,12 @@ from statistics import mean
 import logging
 from datetime import datetime
 
+cluster = sys.argv[1] 
+slurm_ind = sys.argv[2] 
 pwd = os.getcwd()
 main_dir = Path(pwd).parents[1]
-discovery = 0
-if discovery:
+#discovery = 0
+if cluster == 'discovery':
     main_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_biopac/'
 else:
     main_dir = '/Users/h/Dropbox/projects_dropbox/spacetop_biopac'
@@ -62,7 +64,7 @@ main_dir = pwd
 # run = f"run-{run_num-1:02d}"
 flaglist = []
 
-if discovery:
+if cluster == 'discovery':
     biopac_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social/data/physio/physio01_raw-physio'#'/Volumes/spacetop/biopac/dartmouth/b04_finalbids/'
     beh_dir =  '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social/data/beh/d02_preproc-beh'# '/Volumes/spacetop_projects_social/data/d02_preproc-beh'
     cuestudy_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social'
@@ -76,9 +78,13 @@ sub_list = []
 biopac_list = next(os.walk(biopac_dir))[1]  
 remove_int = [1,2,3,4,5,6]
 #remove_int = list(np.arange(78))
+
 remove_list = [f"sub-{x:04d}" for x in remove_int]
+include_int = list(np.arange(slurm_ind*10+1,(slurm_ind+1)*10,1 ))
+include_list = [f"sub-{x:04d}" for x in include_int]
 sub_list = [x for x in biopac_list if x not in remove_list]
-sub_list = ['sub-0029']
+sub_list = [x for x in sub_list if x  in include_list]
+#sub_list = ['sub-0029']
 ses_list = [1,3,4]
 run_list = [1,2,3,4,5,6]
 sub_ses = list(itertools.product(sorted(sub_list), ses_list, run_list))
@@ -387,7 +393,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
 
         #eda_raw_plot = plt.plot(physio_df["EDA_corrected_02fixation"])
         #eda_filters_plot = plt.plot(eda_filters)
-        plt.title('baseline_corrected vs. baseline_corrected + filtered signal')
+        #plt.title('baseline_corrected vs. baseline_corrected + filtered signal')
         #plt.show()
 
         # 2)  decompose signla
@@ -415,12 +421,12 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
 
 
         # TODO: %% eda_epochs_level is the same as eda_epochs_tonic_decomposed. Is there a difference? or is this a matter of being copied over?
-        eda_epochs_BL = nk.epochs_create(eda_filters, 
+        eda_epochs_BL = nk.epochs_create(eda_processed, 
                                         event_stimuli, 
                                         sampling_rate=spacetop_samplingrate, 
                                         epochs_start=0, 
                                         epochs_end=9,
-                                        baseline_correction=True)
+                                        baseline_correction=False)
 
         # tonic component
         eda_epochs_level = nk.epochs_create(eda_level_signal, 
@@ -428,7 +434,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
                                             sampling_rate=spacetop_samplingrate, 
                                             epochs_start=-1, 
                                             epochs_end=8,
-                                            baseline_correction=True)
+                                            baseline_correction=False)
 
         eda_phasic_BL = nk.eda_eventrelated(eda_epochs_BL)
 
