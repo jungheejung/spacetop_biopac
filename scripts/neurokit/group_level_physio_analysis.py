@@ -396,5 +396,5 @@ for physio_fpath in sorted(physio_flist):
     phasic_fname = f"{sub}_{ses}_{run}_epochstart-0_epochend-9_physio-phasictonic.csv"
     phasic_meta_df.to_csv(join(save_dir, phasic_fname))
 
-
+    print(f"complete {sub} {ses} {run}")
 # %%
