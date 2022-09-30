@@ -275,6 +275,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
             else:
                 flaglist.append(f"this pain run doesn't have any TTLs {sub} {ses} {run}")
                 continue
+            
             dict_ttl = utils.preprocess._identify_boundary(physio_df, 'ttl')
 
             ttl_onsets = list(dict_ttl['start'] +
@@ -346,7 +347,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
             #plateau_start
 
         # create a dictionary for neurokit. this will serve as the events
-        if task_type == 'pain':
+        # if task_type == 'pain':
             ttl2 = final_df['ttl_2'].values.tolist()
             plateau_start = np.ceil(ttl2).astype(int)
             event_stimuli = {
