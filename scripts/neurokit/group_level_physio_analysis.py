@@ -28,6 +28,7 @@ from datetime import datetime
 
 cluster = sys.argv[1] 
 slurm_ind = int(sys.argv[2]) 
+print(f"slurm_ind: {slurm_ind}")
 pwd = os.getcwd()
 main_dir = Path(pwd).parents[1]
 #discovery = 0
