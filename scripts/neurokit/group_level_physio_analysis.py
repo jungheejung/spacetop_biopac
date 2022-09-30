@@ -382,35 +382,80 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         # IF you want to use raw signal
         # eda_signal = nk.signal_sanitize(run_physio["Skin Conductance (EDA) - EDA100C-MRI"])
         # eda_raw_plot = plt.plot(run_df["Skin Conductance (EDA) - EDA100C-MRI"])
+        # NOTE: NEW CODE PHASIC________________________________________________________________________________
+        amp_min = 0.01
+        scr_signal = nk.signal_sanitize(physio_df['Skin Conductance (EDA) - EDA100C-MRI'])
+        scr_filters = nk.signal_filter(scr_signal, 
+                                    sampling_rate=spacetop_samplingrate, 
+                                    highcut=1, method="butterworth", order=2) # ISABEL: Detrend
+        scr_detrend = nk.signal_detrend(scr_filters)
 
-        #  USE baseline corrected signal
-        eda_signal = nk.signal_sanitize(physio_df["EDA_corrected_02fixation"])
-        eda_filters = nk.signal_filter(eda_signal,
-                                    sampling_rate=spacetop_samplingrate,
-                                    highcut=1,
-                                    method="butterworth",
-                                    order=2)
+        scr_decomposed = nk.eda_phasic(nk.standardize(scr_detrend), 
+                                    sampling_rate=spacetop_samplingrate) 
 
-        #eda_raw_plot = plt.plot(physio_df["EDA_corrected_02fixation"])
-        #eda_filters_plot = plt.plot(eda_filters)
-        #plt.title('baseline_corrected vs. baseline_corrected + filtered signal')
-        #plt.show()
+        scr_peaks, info = nk.eda_peaks(scr_decomposed["EDA_Phasic"].values,
+                                    sampling_rate=spacetop_samplingrate, 
+                                    method = "neurokit", amplitude_min = amp_min)  
+        scr_signals = pd.DataFrame({"EDA_Raw": scr_signal, "EDA_Clean": scr_filters})
+        scr_processed = pd.concat([scr_signals, scr_decomposed, scr_peaks], axis=1) 
 
-        # 2)  decompose signla
+        scr_epochs = nk.epochs_create(scr_processed, 
+                                        event_stimuli, 
+                                        sampling_rate=spacetop_samplingrate, 
+                                        epochs_start=0, 
+                                        epochs_end=5,
+                                        baseline_correction=True) #
+        scr_phasic = nk.eda_eventrelated(scr_epochs)
 
-        eda_decomposed = nk.eda_phasic(nk.standardize(eda_filters),
-                                    sampling_rate = spacetop_samplingrate)
-        #eda_decomposed_plot = eda_decomposed.plot()
+        # NOTE: NEW CODE TONIC ________________________________________________________________________________
+        #amp_min = 0.01
+        scl_signal = nk.signal_sanitize(physio_df['EDA_corrected_02fixation'])
+        scl_filters = nk.signal_filter(scl_signal, 
+                                    sampling_rate=spacetop_samplingrate, 
+                                    highcut=1, method="butterworth", order=2) # ISABEL: Detrend
+        scl_detrend = nk.signal_detrend(scl_filters)
 
-        eda_peaks, info = nk.eda_peaks(eda_decomposed["EDA_Phasic"].values,
-                                    sampling_rate = spacetop_samplingrate,
-                                    method = "neurokit",
-                                    amplitude_min = 0.02)
-        info["sampling_rate"] = spacetop_samplingrate
+        scl_decomposed = nk.eda_phasic(nk.standardize(scl_detrend), 
+                                    sampling_rate=spacetop_samplingrate) 
 
-        signals = pd.DataFrame({"EDA_Raw": eda_signal, "EDA_Clean": eda_filters})
-        eda_processed = pd.concat([signals, eda_decomposed, eda_peaks], axis=1)
-        eda_level_signal = eda_processed["EDA_Tonic"]  # for skin conductance level
+        # scr_peaks, info = nk.eda_peaks(scr_decomposed["EDA_Phasic"].values, # not needed for SCLs
+        #                             sampling_rate=spacetop_samplingrate, 
+        #                             method = "neurokit", amplitude_min = amp_min)  
+        scl_signals = pd.DataFrame({"EDA_Raw": scl_signal, "EDA_Clean": scl_filters})
+        scl_processed = pd.concat([scl_signals, scl_decomposed['EDA_Tonic']], axis=1) 
+
+        scl_epoch = nk.epochs_create(scl_processed['EDA_Tonic'], 
+                                    event_stimuli, 
+                                    sampling_rate=spacetop_samplingrate, 
+                                    epochs_start=-1, 
+                                    epochs_end=8,
+                                    baseline_correction=False)
+        #scr_phasic = nk.eda_eventrelated(scr_epochs)
+        #srl_tonic = eda_processed["EDA_Tonic"]
+# NOTE: OLD CODE
+        # #  USE baseline corrected signal
+        # eda_signal = nk.signal_sanitize(physio_df["EDA_corrected_02fixation"])
+        # eda_filters = nk.signal_filter(eda_signal,
+        #                             sampling_rate=spacetop_samplingrate,
+        #                             highcut=1,
+        #                             method="butterworth",
+        #                             order=2)
+
+        # # 2)  decompose signla
+
+        # eda_decomposed = nk.eda_phasic(nk.standardize(eda_filters),
+        #                             sampling_rate = spacetop_samplingrate)
+        # #eda_decomposed_plot = eda_decomposed.plot()
+
+        # eda_peaks, info = nk.eda_peaks(eda_decomposed["EDA_Phasic"].values,
+        #                             sampling_rate = spacetop_samplingrate,
+        #                             method = "neurokit",
+        #                             amplitude_min = 0.02)
+        # info["sampling_rate"] = spacetop_samplingrate
+
+        # signals = pd.DataFrame({"EDA_Raw": eda_signal, "EDA_Clean": eda_filters})
+        # eda_processed = pd.concat([signals, eda_decomposed, eda_peaks], axis=1)
+        # eda_level_signal = eda_processed["EDA_Tonic"]  # for skin conductance level
 
         # 3) signal type:
         ### * Interim: `eda_epoch` Define epochs for EDA signal
@@ -421,33 +466,33 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
 
 
         # TODO: %% eda_epochs_level is the same as eda_epochs_tonic_decomposed. Is there a difference? or is this a matter of being copied over?
-        eda_epochs_BL = nk.epochs_create(eda_processed, 
-                                        event_stimuli, 
-                                        sampling_rate=spacetop_samplingrate, 
-                                        epochs_start=0, 
-                                        epochs_end=9,
-                                        baseline_correction=False)
+        # eda_epochs_BL = nk.epochs_create(eda_processed, 
+        #                                 event_stimuli, 
+        #                                 sampling_rate=spacetop_samplingrate, 
+        #                                 epochs_start=0, 
+        #                                 epochs_end=9,
+        #                                 baseline_correction=False)
 
-        # tonic component
-        eda_epochs_level = nk.epochs_create(eda_level_signal, 
-                                            event_stimuli, 
-                                            sampling_rate=spacetop_samplingrate, 
-                                            epochs_start=-1, 
-                                            epochs_end=8,
-                                            baseline_correction=False)
+        # # tonic component
+        # eda_epochs_level = nk.epochs_create(eda_level_signal, 
+        #                                     event_stimuli, 
+        #                                     sampling_rate=spacetop_samplingrate, 
+        #                                     epochs_start=-1, 
+        #                                     epochs_end=8,
+        #                                     baseline_correction=False)
 
-        eda_phasic_BL = nk.eda_eventrelated(eda_epochs_BL)
+        #eda_phasic_BL = nk.eda_eventrelated(eda_epochs_BL)
 
         # TODO: save plot and later QC with an RA
 
-        eda_tonic_BL = nk.eda_intervalrelated(eda_epochs_BL)
+        # eda_tonic_BL = nk.eda_intervalrelated(eda_epochs_BL)
 
         #plot_eda_phasic = nk.events_plot(event_stimuli, 
         #                                eda_processed[["EDA_Tonic", "EDA_Phasic"]])
 
 
         #  concatenate dataframes ____________________________________________________________
-        bio_df = pd.concat([physio_df[['trigger', 'fixation', 'cue', 'expect', 'administer', 'actual']],eda_processed], axis =1) 
+        bio_df = pd.concat([physio_df[['trigger', 'fixation', 'cue', 'expect', 'administer', 'actual']],scr_processed], axis =1) 
         fig_save_dir = join(cuestudy_dir, 'data', 'physio', 'qc', sub, ses)
         Path(fig_save_dir).mkdir( parents=True, exist_ok=True )
 
@@ -465,29 +510,30 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
 
         # Tonic level ________________________________________________________________________________
         # 1. append columns to the begining (trial order, trial type)
-        metadata_tonic = pd.DataFrame(index = list(range(len(eda_epochs_level))),
+        # NOTE: eda_epochs_level -> scl_epoch
+        metadata_tonic = pd.DataFrame(index = list(range(len(scl_epoch))),
                                 columns=['trial_order', 'iv_stim', 'mean_signal'])         
-        for ind in range(len(eda_epochs_level)):
-            metadata_tonic.iloc[ind, metadata_tonic.columns.get_loc('mean_signal')] = eda_epochs_level[str(ind)]["Signal"].mean()
-            metadata_tonic.iloc[ind, metadata_tonic.columns.get_loc('trial_order')] = eda_epochs_level[str(ind)]['Label'].unique()[0]
-            metadata_tonic.iloc[ind, metadata_tonic.columns.get_loc('iv_stim')] = eda_epochs_level[str(ind)]["Condition"].unique()[0]
+        for ind in range(len(scl_epoch)):
+            metadata_tonic.iloc[ind, metadata_tonic.columns.get_loc('mean_signal')] = scl_epoch[str(ind)]["Signal"].mean()
+            metadata_tonic.iloc[ind, metadata_tonic.columns.get_loc('trial_order')] = scl_epoch[str(ind)]['Label'].unique()[0]
+            metadata_tonic.iloc[ind, metadata_tonic.columns.get_loc('iv_stim')] = scl_epoch[str(ind)]["Condition"].unique()[0]
         # 2. eda_level_timecourse
-        eda_level_timecourse = pd.DataFrame(index = list(range(len(eda_epochs_level))),
+        eda_level_timecourse = pd.DataFrame(index = list(range(len(scl_epoch))),
                                 columns= ['time_' + str(col) for col in list(np.arange(18000))])         
-        for ind in range(len(eda_epochs_level)):
-            eda_level_timecourse.iloc[ind,:] = eda_epochs_level[str(ind)]['Signal'].to_numpy().reshape(1,18000)# eda_timecourse.reset_index(drop=True, inplace=True)
+        for ind in range(len(scl_epoch)):
+            eda_level_timecourse.iloc[ind,:] = scl_epoch[str(ind)]['Signal'].to_numpy().reshape(1,18000)# eda_timecourse.reset_index(drop=True, inplace=True)
         tonic_df = pd.concat([metadata_tonic,eda_level_timecourse ], axis = 1)
         tonic_meta_df = pd.concat([metadata_df, tonic_df], axis = 1)
         # 
         save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', sub, ses)
         Path(save_dir).mkdir( parents=True, exist_ok=True )
-        tonic_fname = f"{sub}_{ses}_{run}_epochstart--1_epochend-8_physio-edatonic.csv"
+        tonic_fname = f"{sub}_{ses}_{run}_epochstart--1_epochend-8_physio-scl.csv"
         tonic_meta_df.to_csv(join(save_dir, tonic_fname))
 
 
         #  Phasic: ________________________________________________________________________________
-        phasic_meta_df =  pd.concat([metadata_df, eda_phasic_BL],axis = 1)
-        phasic_fname = f"{sub}_{ses}_{run}_epochstart-0_epochend-9_physio-phasictonic.csv"
+        phasic_meta_df =  pd.concat([metadata_df, scr_phasic],axis = 1)
+        phasic_fname = f"{sub}_{ses}_{run}_epochstart-0_epochend-5_physio-scr.csv"
         phasic_meta_df.to_csv(join(save_dir, phasic_fname))
         print(f"{sub}_{ses}_{run} finished")
         plt.clf()
