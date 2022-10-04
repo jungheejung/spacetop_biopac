@@ -31,8 +31,8 @@ slurm_ind = int(sys.argv[2])
 print(f"slurm_ind: {slurm_ind}")
 pwd = os.getcwd()
 main_dir = Path(pwd).parents[1]
-cluster = 'local'
-slurm_ind = 2
+#cluster = 'local'
+#slurm_ind = 2
 
 #discovery = 0
 if cluster == 'discovery':
@@ -69,7 +69,7 @@ main_dir = pwd
 flaglist = []
 
 if cluster == 'discovery':
-    biopac_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social/data/physio/physio01_raw'#'/Volumes/spacetop/biopac/dartmouth/b04_finalbids/'
+    biopac_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop/biopac/dartmouth/b04_finalbids/task-social' #'/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social/data/physio/physio01_raw'#'/Volumes/spacetop/biopac/dartmouth/b04_finalbids/'
     beh_dir =  '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social/data/beh/d02_preproc-beh'# '/Volumes/spacetop_projects_social/data/d02_preproc-beh'
     cuestudy_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social'
     log_dir = join(cuestudy_dir, "scripts", "logcenter")
@@ -100,8 +100,8 @@ txt_filename = os.path.join(
     log_dir, f"s02-biopac_flaglist_{date}.txt"
 )
 
-if os.path.exists(txt_filename):
-    os.remove(txt_filename)
+#if os.path.exists(txt_filename):
+#    os.remove(txt_filename)
 
 
 formatter = logging.Formatter("%(levelname)s - %(message)s")
@@ -123,8 +123,7 @@ def _extract_bids(fname):
     match.split('-', 1)
     for match in fname.split('_')
     if '-' in match
-    )
-    
+    )    
     sub_num = int(entities['sub'])
     ses_num = int(entities['ses'])
     if 'run' in entities['run'].split('-'):
@@ -156,6 +155,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         sub_num, ses_num, run_num, task_type = _extract_bids(os.path.basename(physio_fpath))
     except:
         logger.error(f"\tno biopac file exists")
+        print("no biopac file exists")
         continue
 
 
