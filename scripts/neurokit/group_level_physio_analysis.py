@@ -113,6 +113,18 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 print(f"starting logger and for loop")
+def _extract_bids(fname):
+    entities = dict(
+    match.split('-', 1)
+    for match in fname.split('_')
+    if '-' in match
+    )
+    
+    sub_num = int(entities['sub'])
+    ses_num = int(entities['ses'])
+    run_num = int(entities['run'].split('-')[0])
+    run_type = entities['run'].split('-')[-1]
+    return sub_num, ses_num, run_num, run_type
 # %%
 # beh_fname = glob.glob(join(main_dir, 'data', '*', '*', 'beh', f"*_task-social_*_beh.csv"))[0]
 # sub-0005_ses-01_task-social_run-01_recording-ppg-eda_physio.acq
@@ -128,33 +140,21 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         # biopac_flist = glob.glob(join(biopac_ttl_dir, sub, ses, "*ttl.csv"))
         physio_flist = glob.glob(join(biopac_dir, sub, ses, f"{sub}_{ses}_task-social_*{run}*_recording-ppg-eda_physio.acq"))
         physio_fpath = physio_flist[0]
+        sub_num, ses_num, run_num, run_type = _extract_bids(os.path.basename(physio_fpath))
     except:
         logger.error(f"\tno biopac file exists")
-        # with open(join(log_dir, "flag_{date}.txt"), "a") as logfile:
-        #     traceback.print_exc(file=logfile)
         continue
-        # save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', sub, ses)
-        # Path(save_dir).mkdir( parents=True, exist_ok=True )
-        # tonic_fname = f"{sub}_{ses}_{run}_epochstart--1_epochend-8_physio-scl.csv"
-        # tonic_meta_df.to_csv(join(save_dir, tonic_fname))
 
-
-        # #  Phasic: ________________________________________________________________________________
-        # phasic_meta_df =  pd.concat([metadata_df, scr_phasic],axis = 1)
-        # phasic_fname = f"{sub}_{ses}_{run}_epochstart-0_epochend-5_physio-scr.csv"
-        # phasic_meta_df.to_csv(join(save_dir, phasic_fname))
-        # print(f"{sub}_{ses}_{run} finished")
-        # plt.clf()
 
     try:
         save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', sub, ses)
-        phasic_fname = f"{sub}_{ses}_*{run}_epochstart-0_epochend-5_physio-scr.csv"
+        phasic_fname = f"{sub}_{ses}_*{run}-{run_type}_epochstart-0_epochend-5_physio-scr.csv"
         if not os.path.exists(join(save_dir, phasic_fname)):
             pass
     except:
         save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', sub, ses)
-        phasic_fname = f"{sub}_{ses}_*{run}_epochstart-0_epochend-5_physio-scr.csv"
-        logger.warning(f"aborting: this job was complete for {sub}_{ses}_{run}")
+        phasic_fname = f"{sub}_{ses}_*{run}-{run_type}_epochstart-0_epochend-5_physio-scr.csv"
+        logger.warning(f"aborting: this job was complete for {sub}_{ses}_{run}_-{run_type}")
         continue
 # if output derivative already exists, skip loop:
 
@@ -291,8 +291,8 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
             
             dict_ttl = utils.preprocess._identify_boundary(physio_df, 'ttl')
 
-            ttl_onsets = list(dict_ttl['start'] +
-                                (dict_ttl['stop'] - dict_ttl['start']) / 2)
+            ttl_onsets = list(np.array(dict_ttl['start']) +
+                                (np.array(dict_ttl['stop']) - np.array(dict_ttl['start'])) / 2)
             print(
                 f"ttl onsets: {ttl_onsets}, length of ttl onset is : {len(ttl_onsets)}"
             )
@@ -313,8 +313,8 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
                     f"this is the {i}-th iteration. stim value is {start_val}, and is in between index {interval_idx}"
                 )
 
-            # calculate TTL onsets
-            dict_ttl = utils.preprocess._identify_boundary(physio_df, 'ttl')
+            # calculate TTL onsets DO I NEED THIS HERE?
+            #dict_ttl = utils.preprocess._identify_boundary(physio_df, 'ttl')
 
             # define empty TTL data frame
             df_ttl = pd.DataFrame(np.nan,
@@ -333,8 +333,18 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
                 val = ttl_onsets[i]
                 print(f"{i}-th value: {val}")
                 empty_cols = []
-                interval_idx = df_onset[idx.contains(val)].index[0]
-                print(f"\t\t* interval index: {interval_idx}")
+                try:
+                    interval_idx = df_onset[idx.contains(val)].index
+                    if len(interval_idx) == 0:
+                        trim = val-spacetop_samplingrate
+                        interval_idx = df_onset[idx.contains(trim)].index
+                        flaglist.append(f"this TTL does not belong to any event boundary")
+                    interval_idx = interval_idx[0]
+                    print(f"\t\t* interval index: {interval_idx}")
+                except:
+                    print(f"this TTL does not belong to any event boundary")
+                    flaglist.append(f"this TTL does not belong to any event boundary")
+                    break
                 mask = df_ttl.loc[[interval_idx]].isnull()
                 empty_cols = list(
                     itertools.compress(np.array(df_ttl.columns.to_list()),
@@ -344,6 +354,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
                 print(
                     f"\t\t* this is the row where the value -- {val} -- falls. on the {interval_idx}-th row"
                 )
+            
 
             # merge :: merge df_onset and df_ttl -> final output: final df
             final_df = pd.merge(df_onset,
@@ -356,15 +367,15 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
             final_df['ttl_r4'] = final_df['ttl_4'] - final_df['stim_start']
 
             ttl2 = final_df['ttl_2'].values.tolist()
-            plateau_start = np.ceil(ttl2).astype(int)
+            plateau_start = np.ceil(ttl2).astype(pd.Int64Dtype) 
             #plateau_start
 
         # create a dictionary for neurokit. this will serve as the events
         # if task_type == 'pain':
-            ttl2 = final_df['ttl_2'].values.tolist()
-            plateau_start = np.ceil(ttl2).astype(int)
+            #ttl2 = final_df['ttl_2'].values.tolist()
+            plateau_start = np.ceil(ttl2).astype(pd.Int64Dtype) 
             event_stimuli = {
-                'onset': np.array(plateau_start),
+                'onset': np.array(plateau_start).astype(pd.Int64Dtype),
                 'duration': np.repeat(spacetop_samplingrate * 5, 12),
                 'label': np.array(np.arange(12)),
                 'condition': beh_df['param_stimulus_type'].values.tolist()
@@ -422,7 +433,6 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         scr_phasic = nk.eda_eventrelated(scr_epochs)
 
         # NOTE: NEW CODE TONIC ________________________________________________________________________________
-        #amp_min = 0.01
         scl_signal = nk.signal_sanitize(physio_df['EDA_corrected_02fixation'])
         scl_filters = nk.signal_filter(scl_signal, 
                                     sampling_rate=spacetop_samplingrate, 
@@ -431,10 +441,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
 
         scl_decomposed = nk.eda_phasic(nk.standardize(scl_detrend), 
                                     sampling_rate=spacetop_samplingrate) 
-
-        # scr_peaks, info = nk.eda_peaks(scr_decomposed["EDA_Phasic"].values, # not needed for SCLs
-        #                             sampling_rate=spacetop_samplingrate, 
-        #                             method = "neurokit", amplitude_min = amp_min)  
+ 
         scl_signals = pd.DataFrame({"EDA_Raw": scl_signal, "EDA_Clean": scl_filters})
         scl_processed = pd.concat([scl_signals, scl_decomposed['EDA_Tonic']], axis=1) 
 
@@ -444,65 +451,6 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
                                     epochs_start=-1, 
                                     epochs_end=8,
                                     baseline_correction=False)
-        #scr_phasic = nk.eda_eventrelated(scr_epochs)
-        #srl_tonic = eda_processed["EDA_Tonic"]
-# NOTE: OLD CODE
-        # #  USE baseline corrected signal
-        # eda_signal = nk.signal_sanitize(physio_df["EDA_corrected_02fixation"])
-        # eda_filters = nk.signal_filter(eda_signal,
-        #                             sampling_rate=spacetop_samplingrate,
-        #                             highcut=1,
-        #                             method="butterworth",
-        #                             order=2)
-
-        # # 2)  decompose signla
-
-        # eda_decomposed = nk.eda_phasic(nk.standardize(eda_filters),
-        #                             sampling_rate = spacetop_samplingrate)
-        # #eda_decomposed_plot = eda_decomposed.plot()
-
-        # eda_peaks, info = nk.eda_peaks(eda_decomposed["EDA_Phasic"].values,
-        #                             sampling_rate = spacetop_samplingrate,
-        #                             method = "neurokit",
-        #                             amplitude_min = 0.02)
-        # info["sampling_rate"] = spacetop_samplingrate
-
-        # signals = pd.DataFrame({"EDA_Raw": eda_signal, "EDA_Clean": eda_filters})
-        # eda_processed = pd.concat([signals, eda_decomposed, eda_peaks], axis=1)
-        # eda_level_signal = eda_processed["EDA_Tonic"]  # for skin conductance level
-
-        # 3) signal type:
-        ### * Interim: `eda_epoch` Define epochs for EDA signal
-        # * eda_epochs: snipping out segments based on start of heat pain stimulus (plateau?) with eda_processed
-        # * eda_epochs_BL: eda_epochs but with baseline correction (necessary?)
-        # * eda_epochs_level: snipping out segments based on plateau of heat pain stimulus with tonic channel of eda_processed for skin conductance level
-        # * eda_epochs_physioBL: snipping out segments based on trigger column (beginning of experiment) for extraction of physio baseline correction
-
-
-        # TODO: %% eda_epochs_level is the same as eda_epochs_tonic_decomposed. Is there a difference? or is this a matter of being copied over?
-        # eda_epochs_BL = nk.epochs_create(eda_processed, 
-        #                                 event_stimuli, 
-        #                                 sampling_rate=spacetop_samplingrate, 
-        #                                 epochs_start=0, 
-        #                                 epochs_end=9,
-        #                                 baseline_correction=False)
-
-        # # tonic component
-        # eda_epochs_level = nk.epochs_create(eda_level_signal, 
-        #                                     event_stimuli, 
-        #                                     sampling_rate=spacetop_samplingrate, 
-        #                                     epochs_start=-1, 
-        #                                     epochs_end=8,
-        #                                     baseline_correction=False)
-
-        #eda_phasic_BL = nk.eda_eventrelated(eda_epochs_BL)
-
-        # TODO: save plot and later QC with an RA
-
-        # eda_tonic_BL = nk.eda_intervalrelated(eda_epochs_BL)
-
-        #plot_eda_phasic = nk.events_plot(event_stimuli, 
-        #                                eda_processed[["EDA_Tonic", "EDA_Phasic"]])
 
 
         #  concatenate dataframes ____________________________________________________________
@@ -510,17 +458,9 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         fig_save_dir = join(cuestudy_dir, 'data', 'physio', 'qc', sub, ses)
         Path(fig_save_dir).mkdir( parents=True, exist_ok=True )
 
-        fig_savename = f"{sub}_{ses}_{run}_physio-edatonic-edaphasic.png"
+        fig_savename = f"{sub}_{ses}_{run}-{run_type}_physio-edatonic-edaphasic.png"
         processed_fig = nk.events_plot(event_stimuli, 
                                         bio_df[['administer', 'EDA_Tonic', 'EDA_Phasic', 'SCR_Peaks' ]])
-        #@suppress
-        #fig = processed_fig[0].get_figure()
-        #processed_fig.savefig(join(fig_save_dir, fig_savename))
-        #processed_fig.show()
-        #plt.close()
-        
-        #eda_processed.plot(subplots = True)
-
 
         # Tonic level ________________________________________________________________________________
         # 1. append columns to the begining (trial order, trial type)
@@ -541,20 +481,20 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         # 
         save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', sub, ses)
         Path(save_dir).mkdir( parents=True, exist_ok=True )
-        tonic_fname = f"{sub}_{ses}_{run}_epochstart--1_epochend-8_physio-scl.csv"
+        tonic_fname = f"{sub}_{ses}_{run}-{run_type}_epochstart--1_epochend-8_physio-scl.csv"
         tonic_meta_df.to_csv(join(save_dir, tonic_fname))
 
 
         #  Phasic: ________________________________________________________________________________
         phasic_meta_df =  pd.concat([metadata_df, scr_phasic],axis = 1)
-        phasic_fname = f"{sub}_{ses}_{run}_epochstart-0_epochend-5_physio-scr.csv"
+        phasic_fname = f"{sub}_{ses}_{run}-{run_type}_epochstart-0_epochend-5_physio-scr.csv"
         phasic_meta_df.to_csv(join(save_dir, phasic_fname))
-        print(f"{sub}_{ses}_{run} finished")
+        print(f"{sub}_{ses}_{run}-{run_type} finished")
         #plt.clf()
 
 
     else:
-        flaglist.append(f"{sub} {ses} {run}")
+        flaglist.append(f"{sub} {ses} {run}-{run_type}")
     
     
 
