@@ -356,7 +356,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
                 except:
                     print(f"this TTL does not belong to any event boundary")
                     flaglist.append(f"this TTL does not belong to any event boundary")
-                    break
+                    continue
                 mask = df_ttl.loc[[interval_idx]].isnull()
                 empty_cols = list(
                     itertools.compress(np.array(df_ttl.columns.to_list()),
