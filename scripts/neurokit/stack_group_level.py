@@ -30,33 +30,39 @@ else:
     log_dir = join(cuestudy_dir, "scripts", "logcenter")
 # glob files
 save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc')
+# sub-0026_ses-04_run-06-pain_epochstart--1_epochend-8_physio-scl
 tonic_flist = glob.glob(join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', '*', '*', 
-f"*_epochstart--1_epochend-8_physio-edatonic.csv"))
+f"*_epochstart--1_epochend-8_physio-scl.csv"))
+# tonic_flist = glob.glob(join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', '*', '*', 
+# f"*_epochstart--1_epochend-8_physio-edatonic.csv"))
+
 tonic_group_df = pd.DataFrame()
 for tonic_fpath in tonic_flist:
     tonic_df = pd.read_csv(tonic_fpath)
     tonic_group_df = pd.concat([tonic_group_df, tonic_df])
-tonic_group_df.to_csv(join(save_dir, f"group_epochstart--1_epochend-8_physio-edatonic.csv"))
-with open(join(save_dir,'group_epochstart--1_epochend-8_physio-edatonic.json'), 'w', encoding='utf-8') as f:
+# tonic_group_df.to_csv(join(save_dir, f"group_epochstart--1_epochend-8_physio-edatonic.csv"))
+tonic_group_df.to_csv(join(save_dir, f"group_epochstart--1_epochend-8_physio-scl.csv"))
+with open(join(save_dir,'group_epochstart--1_epochend-8_physio-scl.json'), 'w', encoding='utf-8') as f:
     json.dump(tonic_flist, f, ensure_ascii=False, indent=4)
 
 
 # %% Phasic: ________________________________________________________________________________
+# sub-0026_ses-04_run-06-pain_epochstart-0_epochend-5_physio-scr
 phasic_flist = glob.glob(join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', '*', '*', 
-f"*_epochstart-0_epochend-9_physio-phasictonic.csv"))
+f"*_epochstart-0_epochend-5_physio-scr.csv"))
 phasic_group_df = pd.DataFrame()
 for phasic_fpath in phasic_flist:
     phasic_df = pd.read_csv(phasic_fpath)
     phasic_group_df = pd.concat([phasic_group_df, phasic_df])
-phasic_group_df.to_csv(join(save_dir, f"group_epochstart-0_epochend-9_physio-phasic.csv"))
-with open(join(save_dir,'group_epochstart-0_epochend-9_physio-phasic.json'), 'w', encoding='utf-8') as f:
+phasic_group_df.to_csv(join(save_dir, f"group_epochstart-0_epochend-5_physio-scr.csv"))
+with open(join(save_dir,'group_epochstart-0_epochend-5_physio-scr.json'), 'w', encoding='utf-8') as f:
     json.dump(phasic_flist, f, ensure_ascii=False, indent=4)
 # stack files
 # savee filename in mettadata
 
 # %% REpair mistake
 phasic_flist = glob.glob(join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', '*', '*', 
-f"*_epochstart-0_epochend-9_physio-phasictonic.csv"))
+f"*_epochstart-0_epochend-5_physio-scr.csv"))
 phasic_group_df = pd.DataFrame()
 for phasic_fpath in phasic_flist:
     phasic_df = pd.read_csv(phasic_fpath)
