@@ -515,13 +515,18 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         except:
             for ind in range(len(scl_epoch)):
                 eda_level_timecourse.iloc[ind,:] = scl_epoch[ind]['Signal'].to_numpy().reshape(1,18000)# eda_timecourse.reset_index(drop=True, inplace=True)
-        tonic_df = pd.concat([metadata_tonic,eda_level_timecourse ], axis = 1)
-        tonic_meta_df = pd.concat([metadata_df, tonic_df], axis = 1)
+        # tonic_df = pd.concat([metadata_tonic,eda_level_timecourse ], axis = 1)
+        # tonic_meta_df = pd.concat([metadata_df, tonic_df], axis = 1)
+
+        tonic_df = pd.concat([metadata_df,metadata_tonic], axis = 1)
+        tonic_timecourse = pd.concat([metadata_df,metadata_tonic, eda_level_timecourse], axis = 1)
         # 
         save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', sub, ses)
         Path(save_dir).mkdir( parents=True, exist_ok=True )
         tonic_fname = f"{sub}_{ses}_{run}-{task_type}_epochstart--1_epochend-8_physio-scl.csv"
-        #tonic_meta_df.to_csv(join(save_dir, tonic_fname))
+        tonictime_fname = f"{sub}_{ses}_{run}-{task_type}_epochstart--1_epochend-8_physio-scltimecourse.csv"
+        tonic_df.to_csv(join(save_dir, tonic_fname))
+        tonic_timecourse.to_csv(join(save_dir, tonictime_fname))
 
 
         #  Phasic: ________________________________________________________________________________
@@ -529,7 +534,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         scr_phasic = scr_phasic.reset_index(drop=True)
         phasic_meta_df = pd.concat([metadata_df,scr_phasic], axis = 1)# pd.merge(metadata_df.sort_index(), scr_phasic.sort_index(), left_index=True)#metadata_df.join(scr_phasic)#pd.concat([metadata_df.sort_index(), scr_phasic.drop_index()],axis = 1)
         phasic_fname = f"{sub}_{ses}_{run}-{task_type}_epochstart-0_epochend-5_physio-scr.csv"
-        #phasic_meta_df.to_csv(join(save_dir, phasic_fname))
+        phasic_meta_df.to_csv(join(save_dir, phasic_fname))
         print(f"{sub}_{ses}_{run}-{task_type} finished")
         #plt.clf()
 
