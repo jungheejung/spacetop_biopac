@@ -126,22 +126,34 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         run = f"run-{run_ind:02d}"
         logger.info(f"\n\n__________________{sub} {ses} {run}__________________")
         # biopac_flist = glob.glob(join(biopac_ttl_dir, sub, ses, "*ttl.csv"))
-        physio_flist = glob.glob(join(biopac_dir, sub, ses, f"{sub}_{ses}_task-social_{run}*_recording-ppg-eda_physio.acq"))
+        physio_flist = glob.glob(join(biopac_dir, sub, ses, f"{sub}_{ses}_task-social_*{run}*_recording-ppg-eda_physio.acq"))
         physio_fpath = physio_flist[0]
     except:
         logger.error(f"\tno biopac file exists")
         # with open(join(log_dir, "flag_{date}.txt"), "a") as logfile:
         #     traceback.print_exc(file=logfile)
         continue
-    
+        # save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', sub, ses)
+        # Path(save_dir).mkdir( parents=True, exist_ok=True )
+        # tonic_fname = f"{sub}_{ses}_{run}_epochstart--1_epochend-8_physio-scl.csv"
+        # tonic_meta_df.to_csv(join(save_dir, tonic_fname))
+
+
+        # #  Phasic: ________________________________________________________________________________
+        # phasic_meta_df =  pd.concat([metadata_df, scr_phasic],axis = 1)
+        # phasic_fname = f"{sub}_{ses}_{run}_epochstart-0_epochend-5_physio-scr.csv"
+        # phasic_meta_df.to_csv(join(save_dir, phasic_fname))
+        # print(f"{sub}_{ses}_{run} finished")
+        # plt.clf()
+
     try:
         save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', sub, ses)
-        phasic_fname = f"{sub}_{ses}_{run}_epochstart-0_epochend-9_physio-phasictonic.csv"
+        phasic_fname = f"{sub}_{ses}_*{run}_epochstart-0_epochend-5_physio-scr.csv"
         if not os.path.exists(join(save_dir, phasic_fname)):
             pass
     except:
         save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', sub, ses)
-        phasic_fname = f"{sub}_{ses}_{run}_epochstart-0_epochend-9_physio-phasictonic.csv"
+        phasic_fname = f"{sub}_{ses}_*{run}_epochstart-0_epochend-5_physio-scr.csv"
         logger.warning(f"aborting: this job was complete for {sub}_{ses}_{run}")
         continue
 # if output derivative already exists, skip loop:
@@ -264,7 +276,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
             })
 
             final_df = pd.DataFrame()
-            if 'TTL' in physio_df:
+            try:
                 utils.preprocess._binarize_channel(
                     physio_df,
                     source_col='TSA2 TTL - CBLCFMA - Current Feedback M',
@@ -272,9 +284,10 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
                     threshold=None,
                     binary_high=5,
                     binary_low=0)
-            else:
+            except:
                 flaglist.append(f"this pain run doesn't have any TTLs {sub} {ses} {run}")
                 continue
+                #continue
             
             dict_ttl = utils.preprocess._identify_boundary(physio_df, 'ttl')
 
@@ -537,7 +550,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         phasic_fname = f"{sub}_{ses}_{run}_epochstart-0_epochend-5_physio-scr.csv"
         phasic_meta_df.to_csv(join(save_dir, phasic_fname))
         print(f"{sub}_{ses}_{run} finished")
-        plt.clf()
+        #plt.clf()
 
 
     else:
