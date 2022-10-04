@@ -123,8 +123,14 @@ def _extract_bids(fname):
     
     sub_num = int(entities['sub'])
     ses_num = int(entities['ses'])
-    run_num = int(entities['run'].split('-')[0])
-    run_type = entities['run'].split('-')[-1]
+    if 'run' in entities['run'].split('-'):
+        run_list = entities['run'].split('-')
+        run_list.remove('run')
+        run_num = run_list[0]
+        run_type = run_list[1]
+    else:
+        run_num = int(entities['run'].split('-')[0])
+        run_type = entities['run'].split('-')[-1]
     return sub_num, ses_num, run_num, run_type
 # %%
 # beh_fname = glob.glob(join(main_dir, 'data', '*', '*', 'beh', f"*_task-social_*_beh.csv"))[0]
@@ -139,8 +145,10 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         run = f"run-{run_ind:02d}"
         logger.info(f"\n\n__________________{sub} {ses} {run}__________________")
         # biopac_flist = glob.glob(join(biopac_ttl_dir, sub, ses, "*ttl.csv"))
+        
         physio_flist = glob.glob(join(biopac_dir, sub, ses, f"{sub}_{ses}_task-social_*{run}*_recording-ppg-eda_physio.acq"))
         physio_fpath = physio_flist[0]
+        string = 'Python is great and Java is also great'
         sub_num, ses_num, run_num, run_type = _extract_bids(os.path.basename(physio_fpath))
     except:
         logger.error(f"\tno biopac file exists")
