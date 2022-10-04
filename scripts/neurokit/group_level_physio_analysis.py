@@ -31,6 +31,9 @@ slurm_ind = int(sys.argv[2])
 print(f"slurm_ind: {slurm_ind}")
 pwd = os.getcwd()
 main_dir = Path(pwd).parents[1]
+cluster = 'local'
+slurm_ind = 2
+
 #discovery = 0
 if cluster == 'discovery':
     main_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_biopac/'
@@ -72,6 +75,7 @@ if cluster == 'discovery':
     log_dir = join(cuestudy_dir, "scripts", "logcenter")
 else:
     biopac_dir = '/Volumes/spacetop_projects_social/data/physio/physio01_raw'#'/Volumes/spacetop/biopac/dartmouth/b04_finalbids/'
+    biopac_dir = '/Volumes/spacetop/biopac/dartmouth/b04_finalbids/task-social'
     beh_dir =  '/Volumes/spacetop_projects_social/data/beh/d02_preproc-beh'# '/Volumes/spacetop_projects_social/data/d02_preproc-beh'
     cuestudy_dir = '/Volumes/spacetop_projects_social' 
     log_dir = join(cuestudy_dir, "scripts", "logcenter")
@@ -127,11 +131,11 @@ def _extract_bids(fname):
         run_list = entities['run'].split('-')
         run_list.remove('run')
         run_num = run_list[0]
-        run_type = run_list[1]
+        task_type = run_list[-1]
     else:
         run_num = int(entities['run'].split('-')[0])
         run_type = entities['run'].split('-')[-1]
-    return sub_num, ses_num, run_num, run_type
+    return sub_num, ses_num, run_num, task_type
 # %%
 # beh_fname = glob.glob(join(main_dir, 'data', '*', '*', 'beh', f"*_task-social_*_beh.csv"))[0]
 # sub-0005_ses-01_task-social_run-01_recording-ppg-eda_physio.acq
@@ -148,8 +152,8 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         
         physio_flist = glob.glob(join(biopac_dir, sub, ses, f"{sub}_{ses}_task-social_*{run}*_recording-ppg-eda_physio.acq"))
         physio_fpath = physio_flist[0]
-        string = 'Python is great and Java is also great'
-        sub_num, ses_num, run_num, run_type = _extract_bids(os.path.basename(physio_fpath))
+        #string = 'Python is great and Java is also great'
+        sub_num, ses_num, run_num, task_type = _extract_bids(os.path.basename(physio_fpath))
     except:
         logger.error(f"\tno biopac file exists")
         continue
@@ -157,13 +161,13 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
 
     try:
         save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', sub, ses)
-        phasic_fname = f"{sub}_{ses}_*{run}-{run_type}_epochstart-0_epochend-5_physio-scr.csv"
+        phasic_fname = f"{sub}_{ses}_*{run}-{task_type}_epochstart-0_epochend-5_physio-scr.csv"
         if not os.path.exists(join(save_dir, phasic_fname)):
             pass
     except:
         save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', sub, ses)
-        phasic_fname = f"{sub}_{ses}_*{run}-{run_type}_epochstart-0_epochend-5_physio-scr.csv"
-        logger.warning(f"aborting: this job was complete for {sub}_{ses}_{run}_-{run_type}")
+        phasic_fname = f"{sub}_{ses}_*{run}-{task_type}_epochstart-0_epochend-5_physio-scr.csv"
+        logger.warning(f"aborting: this job was complete for {sub}_{ses}_{run}_-{task_type}")
         continue
 # if output derivative already exists, skip loop:
 
@@ -432,13 +436,17 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
                                     method = "neurokit", amplitude_min = amp_min)  
         scr_signals = pd.DataFrame({"EDA_Raw": scr_signal, "EDA_Clean": scr_filters})
         scr_processed = pd.concat([scr_signals, scr_decomposed, scr_peaks], axis=1) 
+        try:
 
-        scr_epochs = nk.epochs_create(scr_processed, 
-                                        event_stimuli, 
-                                        sampling_rate=spacetop_samplingrate, 
-                                        epochs_start=0, 
-                                        epochs_end=5,
-                                        baseline_correction=True) #
+            scr_epochs = nk.epochs_create(scr_processed, 
+                                            event_stimuli, 
+                                            sampling_rate=spacetop_samplingrate, 
+                                            epochs_start=0, 
+                                            epochs_end=5,
+                                            baseline_correction=True) #
+        except:
+            print("has NANS in the datafram")
+            continue
         scr_phasic = nk.eda_eventrelated(scr_epochs)
 
         # NOTE: NEW CODE TONIC ________________________________________________________________________________
@@ -467,43 +475,53 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         fig_save_dir = join(cuestudy_dir, 'data', 'physio', 'qc', sub, ses)
         Path(fig_save_dir).mkdir( parents=True, exist_ok=True )
 
-        fig_savename = f"{sub}_{ses}_{run}-{run_type}_physio-edatonic-edaphasic.png"
-        processed_fig = nk.events_plot(event_stimuli, 
-                                        bio_df[['administer', 'EDA_Tonic', 'EDA_Phasic', 'SCR_Peaks' ]])
+        fig_savename = f"{sub}_{ses}_{run}-{task_type}_physio-edatonic-edaphasic.png"
+        #processed_fig = nk.events_plot(event_stimuli, 
+                                        # bio_df[['administer', 'EDA_Tonic', 'EDA_Phasic', 'SCR_Peaks' ]])
 
         # Tonic level ________________________________________________________________________________
         # 1. append columns to the begining (trial order, trial type)
         # NOTE: eda_epochs_level -> scl_epoch
         metadata_tonic = pd.DataFrame(index = list(range(len(scl_epoch))),
-                                columns=['trial_order', 'iv_stim', 'mean_signal'])         
-        for ind in range(len(scl_epoch)):
-            metadata_tonic.iloc[ind, metadata_tonic.columns.get_loc('mean_signal')] = scl_epoch[str(ind)]["Signal"].mean()
-            metadata_tonic.iloc[ind, metadata_tonic.columns.get_loc('trial_order')] = scl_epoch[str(ind)]['Label'].unique()[0]
-            metadata_tonic.iloc[ind, metadata_tonic.columns.get_loc('iv_stim')] = scl_epoch[str(ind)]["Condition"].unique()[0]
+                                columns=['trial_order', 'iv_stim', 'mean_signal'])  
+        try:       
+            for ind in range(len(scl_epoch)):
+                metadata_tonic.iloc[ind, metadata_tonic.columns.get_loc('mean_signal')] = scl_epoch[ind]["Signal"].mean()
+                metadata_tonic.iloc[ind, metadata_tonic.columns.get_loc('trial_order')] = scl_epoch[ind]['Label'].unique()[0]
+                metadata_tonic.iloc[ind, metadata_tonic.columns.get_loc('iv_stim')] = scl_epoch[ind]["Condition"].unique()[0]
+        except:
+            for ind in range(len(scl_epoch)):
+                metadata_tonic.iloc[ind, metadata_tonic.columns.get_loc('mean_signal')] = scl_epoch[str(ind)]["Signal"].mean()
+                metadata_tonic.iloc[ind, metadata_tonic.columns.get_loc('trial_order')] = scl_epoch[str(ind)]['Label'].unique()[0]
+                metadata_tonic.iloc[ind, metadata_tonic.columns.get_loc('iv_stim')] = scl_epoch[str(ind)]["Condition"].unique()[0]
         # 2. eda_level_timecourse
         eda_level_timecourse = pd.DataFrame(index = list(range(len(scl_epoch))),
-                                columns= ['time_' + str(col) for col in list(np.arange(18000))])         
-        for ind in range(len(scl_epoch)):
-            eda_level_timecourse.iloc[ind,:] = scl_epoch[str(ind)]['Signal'].to_numpy().reshape(1,18000)# eda_timecourse.reset_index(drop=True, inplace=True)
+                                columns= ['time_' + str(col) for col in list(np.arange(18000))])   
+        try:      
+            for ind in range(len(scl_epoch)):
+                eda_level_timecourse.iloc[ind,:] = scl_epoch[str(ind)]['Signal'].to_numpy().reshape(1,18000)# eda_timecourse.reset_index(drop=True, inplace=True)
+        except:
+            for ind in range(len(scl_epoch)):
+                eda_level_timecourse.iloc[ind,:] = scl_epoch[ind]['Signal'].to_numpy().reshape(1,18000)# eda_timecourse.reset_index(drop=True, inplace=True)
         tonic_df = pd.concat([metadata_tonic,eda_level_timecourse ], axis = 1)
         tonic_meta_df = pd.concat([metadata_df, tonic_df], axis = 1)
         # 
         save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', sub, ses)
         Path(save_dir).mkdir( parents=True, exist_ok=True )
-        tonic_fname = f"{sub}_{ses}_{run}-{run_type}_epochstart--1_epochend-8_physio-scl.csv"
+        tonic_fname = f"{sub}_{ses}_{run}-{task_type}_epochstart--1_epochend-8_physio-scl.csv"
         tonic_meta_df.to_csv(join(save_dir, tonic_fname))
 
 
         #  Phasic: ________________________________________________________________________________
-        phasic_meta_df =  pd.concat([metadata_df, scr_phasic],axis = 1)
-        phasic_fname = f"{sub}_{ses}_{run}-{run_type}_epochstart-0_epochend-5_physio-scr.csv"
+        phasic_meta_df =  metadata_df.merge(scr_phasic, how='cross')#pd.concat([metadata_df.sort_index(), scr_phasic.drop_index()],axis = 1)
+        phasic_fname = f"{sub}_{ses}_{run}-{task_type}_epochstart-0_epochend-5_physio-scr.csv"
         phasic_meta_df.to_csv(join(save_dir, phasic_fname))
-        print(f"{sub}_{ses}_{run}-{run_type} finished")
+        print(f"{sub}_{ses}_{run}-{task_type} finished")
         #plt.clf()
 
 
     else:
-        flaglist.append(f"{sub} {ses} {run}-{run_type}")
+        flaglist.append(f"{sub} {ses} {run}-{task_type}")
     
     
 
