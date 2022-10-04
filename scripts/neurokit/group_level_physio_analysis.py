@@ -344,7 +344,11 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
                 try:
                     interval_idx = df_onset[idx.contains(val)].index
                     if len(interval_idx) == 0:
-                        trim = val-spacetop_samplingrate
+                        trim = val-spacetop_samplingrate*2
+                        interval_idx = df_onset[idx.contains(trim)].index
+                        flaglist.append(f"this TTL does not belong to any event boundary")
+                    else:
+                        trim = val+spacetop_samplingrate*2
                         interval_idx = df_onset[idx.contains(trim)].index
                         flaglist.append(f"this TTL does not belong to any event boundary")
                     interval_idx = interval_idx[0]
