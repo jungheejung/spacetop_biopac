@@ -14,6 +14,7 @@
 
 # load data
 # %%
+from tkinter import Variable
 import neurokit2 as nk
 import pandas as pd
 import numpy as np
@@ -31,8 +32,6 @@ slurm_ind = int(sys.argv[2])
 print(f"slurm_ind: {slurm_ind}")
 pwd = os.getcwd()
 main_dir = Path(pwd).parents[1]
-#cluster = 'local'
-#slurm_ind = 2
 
 #discovery = 0
 if cluster == 'discovery':
@@ -74,7 +73,7 @@ if cluster == 'discovery':
     cuestudy_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social'
     log_dir = join(cuestudy_dir, "scripts", "logcenter")
 else:
-    biopac_dir = '/Volumes/spacetop_projects_social/data/physio/physio01_raw'#'/Volumes/spacetop/biopac/dartmouth/b04_finalbids/'
+    #biopac_dir = '/Volumes/spacetop_projects_social/data/physio/physio01_raw'#'/Volumes/spacetop/biopac/dartmouth/b04_finalbids/'
     biopac_dir = '/Volumes/spacetop/biopac/dartmouth/b04_finalbids/task-social'
     beh_dir =  '/Volumes/spacetop_projects_social/data/beh/d02_preproc-beh'# '/Volumes/spacetop_projects_social/data/d02_preproc-beh'
     cuestudy_dir = '/Volumes/spacetop_projects_social' 
@@ -89,7 +88,6 @@ include_int = list(np.arange(slurm_ind*10+1,(slurm_ind+1)*10,1 ))
 include_list = [f"sub-{x:04d}" for x in include_int]
 sub_list = [x for x in biopac_list if x not in remove_list]
 sub_list = [x for x in sub_list if x  in include_list]
-#sub_list = ['sub-0029']
 ses_list = [1,3,4]
 run_list = [1,2,3,4,5,6]
 sub_ses = list(itertools.product(sorted(sub_list), ses_list, run_list))
@@ -140,8 +138,6 @@ def _extract_bids(fname):
 # sub-0005_ses-01_task-social_run-01_recording-ppg-eda_physio.acq
 flag = []
 for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
-
-# check if biopac file exists
     try:
         #print(sub, ses_ind, run_ind)
         ses = f"ses-{ses_ind:02d}"
@@ -382,11 +378,25 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
             ttl2 = final_df['ttl_2'].values.tolist()
             plateau_start = np.ceil(ttl2).astype(pd.Int64Dtype) 
             #plateau_start
+            # TODO: before we merge the data, we have to figure out a way to remove the nans
+            # [x] identify row with nan in ttl2 column
+            any_nans =np.argwhere(np.isnan(ttl2)).tolist()
+            flat_nans = [item for sublist in any_nans for item in sublist]
+            # [ ] for plateau remove items with that index
+            for ind in flat_nans:
+                print(ind)
+                plateau_start = np.delete(plateau_start, ind)
+            
+            metadata_df.drop(flat_nans, axis=0, inplace=True)
+            metadata_df['trail_num'] = metadata_df.index + 1
+            #metadata_df = metadata_df.rename(columns = {'index':'Items'})
+
+
 
         # create a dictionary for neurokit. this will serve as the events
         # if task_type == 'pain':
             #ttl2 = final_df['ttl_2'].values.tolist()
-            plateau_start = np.ceil(ttl2).astype(pd.Int64Dtype) 
+            #plateau_start = np.ceil(plateau_start).astype(pd.Int64Dtype) 
             event_stimuli = {
                 'onset': np.array(plateau_start).astype(pd.Int64Dtype),
                 'duration': np.repeat(spacetop_samplingrate * 5, 12),
@@ -461,13 +471,16 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
  
         scl_signals = pd.DataFrame({"EDA_Raw": scl_signal, "EDA_Clean": scl_filters})
         scl_processed = pd.concat([scl_signals, scl_decomposed['EDA_Tonic']], axis=1) 
-
-        scl_epoch = nk.epochs_create(scl_processed['EDA_Tonic'], 
-                                    event_stimuli, 
-                                    sampling_rate=spacetop_samplingrate, 
-                                    epochs_start=-1, 
-                                    epochs_end=8,
-                                    baseline_correction=False)
+        try:
+            scl_epoch = nk.epochs_create(scl_processed['EDA_Tonic'], 
+                                        event_stimuli, 
+                                        sampling_rate=spacetop_samplingrate, 
+                                        epochs_start=-1, 
+                                        epochs_end=8,
+                                        baseline_correction=False)
+        except:
+            print("has NANS in the datafram")
+            continue
 
 
         #  concatenate dataframes ____________________________________________________________
@@ -476,9 +489,9 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         Path(fig_save_dir).mkdir( parents=True, exist_ok=True )
 
         fig_savename = f"{sub}_{ses}_{run}-{task_type}_physio-edatonic-edaphasic.png"
-        #processed_fig = nk.events_plot(event_stimuli, 
-                                        # bio_df[['administer', 'EDA_Tonic', 'EDA_Phasic', 'SCR_Peaks' ]])
-
+        processed_fig = nk.events_plot(event_stimuli, 
+                                        bio_df[['administer', 'EDA_Tonic', 'EDA_Phasic', 'SCR_Peaks' ]])
+        plt.show()
         # Tonic level ________________________________________________________________________________
         # 1. append columns to the begining (trial order, trial type)
         # NOTE: eda_epochs_level -> scl_epoch
@@ -509,13 +522,15 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', sub, ses)
         Path(save_dir).mkdir( parents=True, exist_ok=True )
         tonic_fname = f"{sub}_{ses}_{run}-{task_type}_epochstart--1_epochend-8_physio-scl.csv"
-        tonic_meta_df.to_csv(join(save_dir, tonic_fname))
+        #tonic_meta_df.to_csv(join(save_dir, tonic_fname))
 
 
         #  Phasic: ________________________________________________________________________________
-        phasic_meta_df =  metadata_df.merge(scr_phasic, how='cross')#pd.concat([metadata_df.sort_index(), scr_phasic.drop_index()],axis = 1)
+        metadata_df = metadata_df.reset_index(drop=True)
+        scr_phasic = scr_phasic.reset_index(drop=True)
+        phasic_meta_df = pd.concat([metadata_df,scr_phasic], axis = 1)# pd.merge(metadata_df.sort_index(), scr_phasic.sort_index(), left_index=True)#metadata_df.join(scr_phasic)#pd.concat([metadata_df.sort_index(), scr_phasic.drop_index()],axis = 1)
         phasic_fname = f"{sub}_{ses}_{run}-{task_type}_epochstart-0_epochend-5_physio-scr.csv"
-        phasic_meta_df.to_csv(join(save_dir, phasic_fname))
+        #phasic_meta_df.to_csv(join(save_dir, phasic_fname))
         print(f"{sub}_{ses}_{run}-{task_type} finished")
         #plt.clf()
 
