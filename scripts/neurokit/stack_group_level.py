@@ -17,7 +17,7 @@ import json
 # cuestudy_dir = '/Volumes/spacetop_projects_social' 
 # log_dir = join(cuestudy_dir, "scripts", "logcenter")
 
-discovery=1
+discovery=0
 if discovery:
     biopac_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social/data/physio/physio01_raw'#'/Volumes/spacetop/biopac/dartmouth/b04_finalbids/'
     beh_dir =  '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social/data/beh/d02_preproc-beh'# '/Volumes/spacetop_projects_social/data/d02_preproc-beh'
@@ -61,22 +61,22 @@ with open(join(save_dir,'group_epochstart-0_epochend-5_physio-scr.json'), 'w', e
 # savee filename in mettadata
 
 # %% REpair mistake
-phasic_flist = glob.glob(join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', '*', '*', 
-f"*_epochstart-0_epochend-5_physio-scr.csv"))
-phasic_group_df = pd.DataFrame()
-for phasic_fpath in phasic_flist:
-    phasic_df = pd.read_csv(phasic_fpath)
-    former = phasic_df[['Unnamed: 0', 'src_subject_id', 'session_id', 'param_task_name',
-        'param_run_num', 'param_cue_type', 'param_stimulus_type',
-        'param_cond_type']].iloc[0:12]
+# phasic_flist = glob.glob(join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', '*', '*', 
+# f"*_epochstart-0_epochend-5_physio-scr.csv"))
+# phasic_group_df = pd.DataFrame()
+# for phasic_fpath in phasic_flist:
+#     phasic_df = pd.read_csv(phasic_fpath)
+#     former = phasic_df[['Unnamed: 0', 'src_subject_id', 'session_id', 'param_task_name',
+#         'param_run_num', 'param_cue_type', 'param_stimulus_type',
+#         'param_cond_type']].iloc[0:12]
 
-    latter = phasic_df[['Label', 'Condition', 'Event_Onset',
-        'EDA_Peak_Amplitude', 'EDA_SCR', 'SCR_Peak_Amplitude',
-        'SCR_Peak_Amplitude_Time', 'SCR_RiseTime', 'SCR_RecoveryTime']].iloc[12:25].reset_index(drop=True)
+#     latter = phasic_df[['Label', 'Condition', 'Event_Onset',
+#         'EDA_Peak_Amplitude', 'EDA_SCR', 'SCR_Peak_Amplitude',
+#         'SCR_Peak_Amplitude_Time', 'SCR_RiseTime', 'SCR_RecoveryTime']].iloc[12:25].reset_index(drop=True)
 
-    phasic_patch = pd.concat([former, latter], axis = 1)
-    phasic_group_df = pd.concat([phasic_group_df, phasic_patch], axis = 0)
-phasic_group_df = phasic_group_df.loc[:, ~phasic_group_df.columns.str.contains('^Unnamed')]
-phasic_group_df.to_csv(join(save_dir, f"group_epochstart-0_epochend-9_physio-phasic.csv"), index=False)
-with open(join(save_dir,'group_epochstart-0_epochend-9_physio-phasic.json'), 'w', encoding='utf-8') as f:
-    json.dump(phasic_flist, f, ensure_ascii=False, indent=4)
+#     phasic_patch = pd.concat([former, latter], axis = 1)
+#     phasic_group_df = pd.concat([phasic_group_df, phasic_patch], axis = 0)
+# phasic_group_df = phasic_group_df.loc[:, ~phasic_group_df.columns.str.contains('^Unnamed')]
+# phasic_group_df.to_csv(join(save_dir, f"group_epochstart-0_epochend-9_physio-phasic.csv"), index=False)
+# with open(join(save_dir,'group_epochstart-0_epochend-9_physio-phasic.json'), 'w', encoding='utf-8') as f:
+#     json.dump(phasic_flist, f, ensure_ascii=False, indent=4)
