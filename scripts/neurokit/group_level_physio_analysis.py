@@ -155,16 +155,16 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         continue
 
 
-    try:
-        save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', sub, ses)
-        phasic_fname = f"{sub}_{ses}_*{run}-{task_type}_epochstart-0_epochend-5_physio-scr.csv"
-        if not os.path.exists(join(save_dir, phasic_fname)):
-            pass
-    except:
-        save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', sub, ses)
-        phasic_fname = f"{sub}_{ses}_*{run}-{task_type}_epochstart-0_epochend-5_physio-scr.csv"
-        logger.warning(f"aborting: this job was complete for {sub}_{ses}_{run}_-{task_type}")
-        continue
+#    try:
+#        save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', sub, ses)
+#        phasic_fname = f"{sub}_{ses}_*{run}-{task_type}_epochstart-0_epochend-5_physio-scr.csv"
+#        if not os.path.exists(join(save_dir, phasic_fname)):
+#            pass
+#    except:
+#        save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', sub, ses)
+#        phasic_fname = f"{sub}_{ses}_*{run}-{task_type}_epochstart-0_epochend-5_physio-scr.csv"
+#        logger.warning(f"aborting: this job was complete for {sub}_{ses}_{run}_-{task_type}")
+#        continue
 # if output derivative already exists, skip loop:
 
 # for physio_fpath in sorted(physio_flist):
