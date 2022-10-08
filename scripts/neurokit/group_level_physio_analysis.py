@@ -91,8 +91,8 @@ sub_ses = list(itertools.product(sorted(sub_list), ses_list, run_list))
 date = datetime.now().strftime("%m-%d-%Y")
 txt_filename = os.path.join(log_dir, f"s02-biopac_flaglist_{date}.txt")
 
-if os.path.exists(txt_filename):
-    os.remove(txt_filename)
+#if os.path.exists(txt_filename):
+#    os.remove(txt_filename)
 
 formatter = logging.Formatter("%(levelname)s - %(message)s")
 handler = logging.FileHandler(txt_filename)
@@ -149,9 +149,11 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
     #     ))
     try:
         physio_fpath = physio_flist[0]
+        #string = 'Python is great and Java is also great'
+        sub_num, ses_num, run_num, task_type = _extract_bids(os.path.basename(physio_fpath))
     except IndexError:
-        logger.error(
-            f"\tmissing physio file - {sub} {ses} {run} DOES NOT exist")
+        logger.error(f"\tmissing physio file - {sub} {ses} {run} DOES NOT exist")
+        print("no biopac file exists")
         continue
     sub_num, ses_num, run_num, task_type = _extract_bids(
         os.path.basename(physio_fpath))
@@ -586,4 +588,5 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
     print(f"{sub}_{ses}_{run}-{task_type} finished")
     #plt.clf()
 
-
+    print(f"complete {sub} {ses} {run}")
+# %%
