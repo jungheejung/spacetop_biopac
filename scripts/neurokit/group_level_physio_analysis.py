@@ -42,6 +42,7 @@ sys.path.insert(0, os.path.join(main_dir, 'scripts'))
 print(sys.path)
 import utils
 from utils import preprocess
+from utils import checkfiles
 
 __author__ = "Heejung Jung"
 __copyright__ = "Spatial Topology Project"
@@ -61,6 +62,7 @@ plt.rcParams['font.size'] = 14
 pwd = os.getcwd()
 main_dir = pwd
 flaglist = []
+task = 'task-social'
 
 if cluster == 'discovery':
     biopac_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social/data/physio/physio01_raw'  #'/Volumes/spacetop/biopac/dartmouth/b04_finalbids/'
@@ -124,28 +126,38 @@ def _extract_bids(fname):
 # %%____________________________________________________________________________________________________
 flag = []
 for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
-
-    # NOTE: open physio dataframe (check if exists) __________________________________________________________
+# if Glob physiology df / ERROR if physiological doesn’t exist
+# Check if we already ran the analysis / if so, abort
+# Open physiology df
+# Open corresponding behavioral df / ERROR if corresponding behavioral df doesn’t exist
+# Clean fixation columns
+# Baseline correct
+# Extract epochs
+# TTL extraction
+# 1) binarize TTL channel / ERROR if TTL channel doesn’t have any data and fails to run
+# 2) assign TTL based on the event boundary
+# NOTE: open physio dataframe (check if exists) __________________________________________________________
+    
+    ses = f"ses-{ses_ind:02d}"; run = f"run-{run_ind:02d}"
+    logger.info(
+        f"\n\n__________________{sub} {ses} {run}__________________")
+    physio_flist = utils.checkfiles._glob_physio_bids(biopac_dir, sub,ses,task,run)
+    # physio_flist = glob.glob(
+    #     join(
+    #         biopac_dir, sub, ses,
+    #         f"{sub}_{ses}_task-social_*{run}*_recording-ppg-eda_physio.acq"
+    #     ))
     try:
-        ses = f"ses-{ses_ind:02d}"
-        run = f"run-{run_ind:02d}"
-        logger.info(
-            f"\n\n__________________{sub} {ses} {run}__________________")
-
-        physio_flist = glob.glob(
-            join(
-                biopac_dir, sub, ses,
-                f"{sub}_{ses}_task-social_*{run}*_recording-ppg-eda_physio.acq"
-            ))
         physio_fpath = physio_flist[0]
-        sub_num, ses_num, run_num, task_type = _extract_bids(
-            os.path.basename(physio_fpath))
     except IndexError:
         logger.error(
             f"\tmissing physio file - {sub} {ses} {run} DOES NOT exist")
         continue
+    sub_num, ses_num, run_num, task_type = _extract_bids(
+        os.path.basename(physio_fpath))
 
-    # NOTE: if output derivative already exists, skip loop: __________________________________________________
+
+# NOTE: if output derivative already exists, skip loop: __________________________________________________
     try:
         save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc',
                         sub, ses)
@@ -161,7 +173,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         )
         continue
 
-    # NOTE: identify physio file for corresponding sub/ses/run _______________________________________________
+# NOTE: identify physio file for corresponding sub/ses/run _______________________________________________
     physio_fname = os.path.basename(physio_fpath)
     logger.info({physio_fname})
     task = [match for match in physio_fname.split('_') if "task" in match][0]
@@ -169,8 +181,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
     physio_df = pd.read_csv(physio_fpath)
     spacetop_samplingrate = 2000
 
-
-    # NOTE: identify behavioral file for corresponding sub/ses/run ____________________________________
+# NOTE: identify behavioral file for corresponding sub/ses/run ____________________________________
     beh_fpath = glob.glob(
         join(beh_dir, sub, ses,
              f"{sub}_{ses}_task-social_{run}*_beh.csv"))
@@ -191,11 +202,12 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         'param_cue_type', 'param_stimulus_type', 'param_cond_type'
     ]]
 
-    # NOTE: merge fixation columns (some files look different) handle slight changes in biopac dataframe
+# NOTE: merge fixation columns (some files look different) handle slight changes in biopac dataframe
     if 'fixation-01' in physio_df.columns:
         physio_df[
             'fixation'] = physio_df['fixation-01'] + physio_df['fixation-02']
-    # NOTE: baseline correct _________________________________________________________________________________
+
+# NOTE: baseline correct _________________________________________________________________________________
     # 1) extract fixations:
     fix_bool = physio_df['fixation'].astype(bool).sum()
     print(
@@ -220,7 +232,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
     print(f"baseline using the 6 TR: {baseline_method01}")
     print(f"baseline using fixation from entire run: {baseline_method02}")
 
-    # NOTE: extract epochs ___________________________________________________________________________________
+# NOTE: extract epochs ___________________________________________________________________________________
     # extract epochs :: cue
     utils.preprocess._binarize_channel(physio_df,
                                        source_col='cue',
@@ -266,7 +278,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         physio_df, 'actualrating')
     print(f"* total number of trials: {len(dict_actualrating['start'])}")
 
-    # NOTE: TTL extraction ___________________________________________________________________________________
+# NOTE: TTL extraction ___________________________________________________________________________________
     if task_type == 'pain':
         final_df = pd.DataFrame()
         # binarize TTL channels (raise error if channel has no TTL, despite being a pain run)
@@ -418,12 +430,13 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         #run_physio
         stim_plot = nk.events_plot(event_stimuli, run_physio)
 
-    # NOTE: neurokit analysis :+: HIGHLIGHT :+: filter signal ________________________________________________
+# NOTE: neurokit analysis :+: HIGHLIGHT :+: filter signal ________________________________________________
 
     # IF you want to use raw signal
     # eda_signal = nk.signal_sanitize(run_physio["Skin Conductance (EDA) - EDA100C-MRI"])
     # eda_raw_plot = plt.plot(run_df["Skin Conductance (EDA) - EDA100C-MRI"])
-    # NOTE: PHASIC_____________________________________________________________________________
+
+# NOTE: PHASIC_____________________________________________________________________________
     amp_min = 0.01
     scr_signal = nk.signal_sanitize(
         physio_df['Skin Conductance (EDA) - EDA100C-MRI'])
@@ -458,7 +471,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         continue
     scr_phasic = nk.eda_eventrelated(scr_epochs)
 
-    # NOTE:  TONIC ________________________________________________________________________________
+# NOTE:  TONIC ________________________________________________________________________________
     scl_signal = nk.signal_sanitize(physio_df['EDA_corrected_02fixation'])
     scl_filters = nk.signal_filter(scl_signal,
                                    sampling_rate=spacetop_samplingrate,
@@ -485,7 +498,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
         print("has NANS in the datafram")
         continue
 
-    #  NOTE: concatenate dataframes __________________________________________________________________________
+#  NOTE: concatenate dataframes __________________________________________________________________________
     bio_df = pd.concat([
         physio_df[[
             'trigger', 'fixation', 'cue', 'expect', 'administer', 'actual',
@@ -553,7 +566,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
     tonic_df = pd.concat([metadata_df, metadata_tonic], axis=1)
     tonic_timecourse = pd.concat(
         [metadata_df, metadata_tonic, eda_level_timecourse], axis=1)
-    # NOTE: save tonic data __________________________________________________________________________________
+# NOTE: save tonic data __________________________________________________________________________________
     save_dir = join(cuestudy_dir, 'data', 'physio', 'physio02_preproc', sub,
                     ses)
     Path(save_dir).mkdir(parents=True, exist_ok=True)
@@ -562,7 +575,7 @@ for i, (sub, ses_ind, run_ind) in enumerate(sub_ses):
     tonic_df.to_csv(join(save_dir, tonic_fname))
     tonic_timecourse.to_csv(join(save_dir, tonictime_fname))
 
-    # NOTE: save phasic data _________________________________________________________________________________
+# NOTE: save phasic data _________________________________________________________________________________
     metadata_df = metadata_df.reset_index(drop=True)
     scr_phasic = scr_phasic.reset_index(drop=True)
     phasic_meta_df = pd.concat(
