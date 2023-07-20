@@ -88,7 +88,7 @@ def merge_qc_scl(qc_fname, scl_flist):
 scl_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio/physio01_SCL' #'/Users/h/Documents/projects_local/sandbox/physioresults/physio01_SCL'                                            sub-0015_ses-01_run-05_runtype-pain_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt
 save_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio/glm'
 scl_dir = '/Volumes/spacetop_projects_cue/analysis/physio/physio01_SCL' #'/Users/h/Documents/projects_local/sandbox/physioresults/physio01_SCL'                                            sub-0015_ses-01_run-05_runtype-pain_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt
-save_dir = '/Volumes/spacetop_projects_cue/analysis/physio/glm/pmod-stimintensity'
+save_dir = '/Volumes/spacetop_projects_cue/analysis/physio/glm/pmod-cue'
 qc_fname = '/Users/h/Documents/projects_local/spacetop_biopac/data/QC_EDA_new.csv'
 qc = pd.read_csv(qc_fname)
 TR = 0.46
@@ -105,7 +105,7 @@ scl_flist = sorted(glob.glob(join(scl_dir,'**', f'*{task}_epochstart--3_epochend
                 #    '/Users/h/Documents/projects_local/sandbox/physioresults/physio01_SCL/sub-0017/ses-03/sub-0017_ses-03_run-05_runtype-pain_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt'
 # ======= NOTE: create empty dataframe
 df_column = ['filename', 'sub', 'ses', 'run', 'runtype', 'intercept'] 
-cond_list = ['low_stim', 'med_stim', 'high_stim']
+cond_list = ['low_cue', 'high_cue']
 merged_df = merge_qc_scl(qc_fname, scl_flist)
 filtered_list = list(merged_df.filename)
 betadf = pd.DataFrame(index=range(len(filtered_list)), columns=df_column + cond_list)
@@ -152,13 +152,13 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     array_length = total_runlength_sec * data_points_per_second
     signal = np.zeros(len(pdf)) #np.zeros(total_runlength_sec * data_points_per_second)
     
-    stim_dict = {"low_stim": 1,
-                    "med_stim": 2,
-                    "high_stim": 3}
+    stim_dict = {"low_cue": 1,
+                    "high_cue": 10,
+                    }
     total_regressor = []
     for cond in cond_list:
         signal  = np.zeros(len(pdf)) 
-        cond_index = metadf.loc[metadf['param_stimulus_type'] == cond].index.values
+        cond_index = metadf.loc[metadf['param_cue_type'] == cond].index.values
         event_time = np.array(js['event_stimuli']['start'])[cond_index]/samplingrate
         eventtime_shift = event_time + shift_time
         event_indices = (eventtime_shift * data_points_per_second).astype(int)
@@ -193,11 +193,11 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     Y_r = np.array(y).reshape(-1,1)
     reg = linear_model.LinearRegression().fit(X_r, Y_r)
     reg.score(X_r, Y_r)
-    print(f"coefficient: {reg.coef_[0][0]}, {reg.coef_[0][1]}, {reg.coef_[0][2]}, intercept: {reg.intercept_[0]}")
+    print(f"coefficient: {reg.coef_[0][0]}, {reg.coef_[0][1]}, intercept: {reg.intercept_[0]}")
 
     betadf.at[ind, cond_list[0]] = reg.coef_[0][0]
     betadf.at[ind, cond_list[1]] = reg.coef_[0][1]
-    betadf.at[ind, cond_list[2]] = reg.coef_[0][2]
+    # betadf.at[ind, cond_list[2]] = reg.coef_[0][2]
     betadf.at[ind, 'intercept'] = reg.intercept_[0]
 
 # ======= NOTE:  extract metadata and save dataframe
@@ -206,7 +206,7 @@ betadf['ses'] = betadf['filename'].str.extract(r'(ses-\d+)')
 betadf['run'] = betadf['filename'].str.extract(r'(run-\d+)')
 betadf['runtype'] = betadf['filename'].str.extract(r'runtype-(\w+)_')
 
-betadf.to_csv(join(save_dir, f'glm-pmodintenisy_task-{task}.tsv'), sep='\t')
+betadf.to_csv(join(save_dir, f'glm-pmodcue_task-{task}.tsv'), sep='\t')
 # TODO: save metadata in json
 {"shift":3, 
  "samplingrate_of_onsettime": 2000, 
@@ -214,33 +214,5 @@ betadf.to_csv(join(save_dir, f'glm-pmodintenisy_task-{task}.tsv'), sep='\t')
  "TR": 0.46, 
  "source_code": "scripts/p03_glm/glm.py",
  "regressor": "stimulus condition convolve"}
-# %%
-example_txt = '/Volumes/spacetop_projects_cue/analysis/physio/physio01_SCL/sub-0028/ses-01/sub-0028_ses-01_run-01_runtype-vicarious_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt'
-df = pd.read_csv(example_txt, sep='\t', header=None)
-scaler = StandardScaler()
 
-Xe = df[0]
-# normXe = scaler.fit_transform(Xe)
-indexee = Xe.index
-# y = convolved_signal
-# plt.plot(indexee, Xe )
-# plt.plot(index, y*100)
-# plt.plot(indexee, normXe )
-import numpy as np
-
-# Example continuous signal as a NumPy array
-# signal = np.array([10, 20, 30, 40, 50])
-
-# Z-score normalization
-mean_value = np.mean(Xe)
-std_value = np.std(Xe)
-normalized_signal = (Xe - mean_value) / std_value
-plt.plot(indexee, normalized_signal )
-# print(normalized_signal)
-convolved_norsignal = convolve(normalized_signal, hrf_values, mode='full')[:len(signal)]
-XEE = pdf[0]
-index = XEE.index
-yEE = convolved_norsignal
-plt.plot(index, XEE )
-plt.plot(index, yEE*.5)
 # %%
