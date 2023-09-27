@@ -93,7 +93,7 @@ qc_fname = '/Users/h/Documents/projects_local/spacetop_biopac/data/QC_EDA_new.cs
 qc = pd.read_csv(qc_fname)
 TR = 0.46
 task = 'pain'
-# ======= TODO: make code generic
+# %% ======= TODO: make code generic
 # glob files
 # extract info
 # add this info to a table
@@ -103,7 +103,7 @@ task = 'pain'
 # scl_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio/physio01_SCL' #'/Users/h/Documents/projects_local/sandbox/physioresults/physio01_SCL'                                            sub-0015_ses-01_run-05_runtype-pain_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt
 scl_flist = sorted(glob.glob(join(scl_dir,'**', f'*{task}_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt'), recursive=True))
                 #    '/Users/h/Documents/projects_local/sandbox/physioresults/physio01_SCL/sub-0017/ses-03/sub-0017_ses-03_run-05_runtype-pain_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt'
-# ======= NOTE: create empty dataframe
+# %%======= NOTE: create empty dataframe
 df_column = ['filename', 'sub', 'ses', 'run', 'runtype', 'intercept'] 
 cond_list = ['high_stim-high_cue', 'high_stim-low_cue',
              'med_stim-high_cue', 'med_stim-low_cue',
@@ -113,6 +113,10 @@ filtered_list = list(merged_df.filename)
 betadf = pd.DataFrame(index=range(len(filtered_list)), columns=df_column + cond_list)
 Path(join(save_dir)).mkdir(parents=True, exist_ok=True)
 
+
+# %% save betadf
+betadf.to_csv('/Users/h/Documents/projects_local/spacetop_biopac/data/EDA_metadata.csv')
+# %%
 for ind, scl_fpath in enumerate(sorted(filtered_list)):
     # ======= NOTE: load data
     # pdf_fname = '/Users/h/Documents/projects_local/sandbox/physioresults/physio01_SCL/sub-0017/ses-03/sub-0017_ses-03_run-05_runtype-pain_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt'
@@ -172,12 +176,12 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     Xmatrix = np.vstack(total_regressor)
     y = pdf[0]
     index = y.index
-    for cond_ind in np.arange(len(cond_list)):
-        plt.plot(index, Xmatrix[cond_ind].T)
-    plt.plot(index, y)
-    plt.show()
-    plt.savefig(join(save_dir, basename[:-4]+'.png'))
-    plt.close()
+    # for cond_ind in np.arange(len(cond_list)):
+    #     plt.plot(index, Xmatrix[cond_ind].T)
+    # plt.plot(index, y)
+    # plt.show()
+    # plt.savefig(join(save_dir, basename[:-4]+'.png'))
+    # plt.close()
     #======= NOTE: linear modeling dataframe
     X_r = np.array(Xmatrix).T
     Y_r = np.array(y).reshape(-1,1)
@@ -194,6 +198,29 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
 
     betadf.at[ind, 'intercept'] = reg.intercept_[0]
 
+
+# TEST SANDBOX 09/23/2023
+    predicted_total_signal = []
+    for ind, cond in enumerate(cond_list):
+        print(ind)
+        predicted_signal  = np.zeros(len(pdf)) 
+        cond_index = metadf.loc[metadf['condition'] == cond].index.values
+        event_time = np.array(js['event_stimuli']['start'])[cond_index]/samplingrate
+        eventtime_shift = event_time + shift_time
+        event_indices = (eventtime_shift * data_points_per_second).astype(int)
+        predicted_signal[event_indices[:len(pdf)]] = stim_dict[cond] * reg.coef_[0][ind]
+        predicted_convolved_signal = convolve(predicted_signal, scr , mode='full')[:len(predicted_signal)]
+        predicted_total_signal.append(predicted_convolved_signal)
+    # ======= NOTE: convolve 
+    predictedXmatrix = np.vstack(predicted_total_signal)
+    y = pdf[0]
+    index = y.index
+    for cond_ind in np.arange(len(cond_list)):
+        plt.plot(index, predictedXmatrix[cond_ind].T)
+    plt.plot(index, y)
+    # plt.show()
+    plt.savefig(join(save_dir, basename[:-4]+'_modelfitted.png'))
+    plt.close()
 # ======= NOTE:  extract metadata and save dataframe
 betadf['sub']= betadf['filename'].str.extract(r'(sub-\d+)')
 betadf['ses'] = betadf['filename'].str.extract(r'(ses-\d+)')
