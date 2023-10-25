@@ -78,7 +78,6 @@ def merge_qc_scl(qc_fname, scl_flist):
     scl_file['task'] = scl_file['filename'].str.extract(r'runtype-(\w+)_').astype(str)
 
     # Merge temp_df with the qc DataFrame on 'sub', 'ses', 'run', and 'runtype'
-    # merged_df = pd.merge(temp_df, qc, on=['sub', 'ses', 'run', 'runtype'], how='inner')
     merged_df = pd.merge(scl_file, qc_sub, on=['sub', 'ses', 'run', 'task'], how='inner')
     
     return merged_df
@@ -112,7 +111,10 @@ betadf = pd.DataFrame(index=range(len(filtered_list)), columns=df_column + cond_
 Path(join(save_dir)).mkdir(parents=True, exist_ok=True)
 
 for ind, scl_fpath in enumerate(sorted(filtered_list)):
-    # ======= NOTE: load data
+    # ----------------------------------------------------------------------
+    #                               load data
+    # ----------------------------------------------------------------------
+
     # pdf_fname = '/Users/h/Documents/projects_local/sandbox/physioresults/physio01_SCL/sub-0017/ses-03/sub-0017_ses-03_run-05_runtype-pain_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt'
     # sub-0015_ses-01_run-05_runtype-pain_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt
     # 'sub-0015_ses-01_run-05_runtype-pain_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt'
@@ -128,7 +130,9 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     with open(join(dirname, json_fname)) as json_file:
         js = json.load(json_file)
     betadf.at[ind, 'filename'] = basename
-    # ======= NOTE: fetch HRF curve
+    # ----------------------------------------------------------------------
+    #                    fetch canonical PSPM curve
+    # ----------------------------------------------------------------------
     # convolve 
     # TR = 0.46
     # hrf_duration = 20  # Duration of the HRF in seconds
@@ -136,11 +140,12 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     # scr = nilearn.glm.first_level.glover_hrf(1/TR, 
     #                                                 # oversampling=50, 
     #                                                 time_length=hrf_duration, onset=0)
-    # # plt.plot(scr)
+
     pspm_scr = pd.read_csv('/Users/h/Documents/projects_local/spacetop_biopac/scripts/p03_glm/pspm-scrf_td-25.txt', sep='\t')
-    # plt.plot(pspm_scr.squeeze())
     scr = pspm_scr.squeeze()
-    # ======= NOTE: construct event regressors
+    # ----------------------------------------------------------------------
+    #                    construct event regressors
+    # ----------------------------------------------------------------------
     # TODO: load reference metadata
     sub = f"sub-{sub_ind:04d}"
     ses = f"ses-{ses_ind:02d}"
@@ -168,22 +173,12 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
         convolved_signal = convolve(signal, scr, mode='full')[:len(signal)]
         total_regressor.append(convolved_signal)
 
-    # event_time = np.array(js['event_stimuli']['start'])/samplingrate
-    # eventtime_shift = event_time + shift_time
-    # event_indices = (eventtime_shift * data_points_per_second).astype(int)
-    # signal[event_indices[:len(pdf)]] = 1
-
-
-    # ======= NOTE: convolve 
-    # convolved_signal = convolve(signal, scr, mode='full')[:len(signal)]
+    # ----------------------------------------------------------------------
+    #                       convolve
+    # ----------------------------------------------------------------------
     Xmatrix = np.vstack(total_regressor)
-
-    # convolved_signal = convolve(Xmatrix, scr, mode='full')[:len(Xmatrix.shape[1])]
     y = pdf[0]
-    # norm_y = (y - np.mean(y)) / np.std(y)
     index = y.index
-    # X = convolved_signal
-    # plt.plot(index, Xmatrix[0] )
     for cond_ind in np.arange(len(cond_list)):
         # print(ind)
         plt.plot(index, Xmatrix[cond_ind].T)
@@ -191,7 +186,11 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     plt.show()
     plt.savefig(join(save_dir, basename[:-4]+'.png'))
     plt.close()
-    #======= NOTE: linear modeling dataframe
+
+    # ----------------------------------------------------------------------
+    #                       linear modeling dataframe
+    # ----------------------------------------------------------------------
+
     X_r = np.array(Xmatrix).T
     Y_r = np.array(y).reshape(-1,1)
     reg = linear_model.LinearRegression().fit(X_r, Y_r)
@@ -203,7 +202,9 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     betadf.at[ind, cond_list[2]] = reg.coef_[0][2]
     betadf.at[ind, 'intercept'] = reg.intercept_[0]
 
-# ======= NOTE:  extract metadata and save dataframe
+# ----------------------------------------------------------------------
+#                       linear modeling dataframe
+# ----------------------------------------------------------------------
 betadf['sub']= betadf['filename'].str.extract(r'(sub-\d+)')
 betadf['ses'] = betadf['filename'].str.extract(r'(ses-\d+)')
 betadf['run'] = betadf['filename'].str.extract(r'(run-\d+)')
@@ -217,33 +218,3 @@ betadf.to_csv(join(save_dir, f'glm-pmodintenisy_task-{task}_scr.tsv'), sep='\t')
  "TR": 0.46, 
  "source_code": "scripts/p03_glm/glm.py",
  "regressor": "stimulus condition convolve"}
-# %%
-example_txt = '/Volumes/spacetop_projects_cue/analysis/physio/physio01_SCL/sub-0028/ses-01/sub-0028_ses-01_run-01_runtype-vicarious_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt'
-df = pd.read_csv(example_txt, sep='\t', header=None)
-scaler = StandardScaler()
-
-Xe = df[0]
-# normXe = scaler.fit_transform(Xe)
-indexee = Xe.index
-# y = convolved_signal
-# plt.plot(indexee, Xe )
-# plt.plot(index, y*100)
-# plt.plot(indexee, normXe )
-import numpy as np
-
-# Example continuous signal as a NumPy array
-# signal = np.array([10, 20, 30, 40, 50])
-
-# Z-score normalization
-mean_value = np.mean(Xe)
-std_value = np.std(Xe)
-normalized_signal = (Xe - mean_value) / std_value
-plt.plot(indexee, normalized_signal )
-# print(normalized_signal)
-convolved_norsignal = convolve(normalized_signal, scr, mode='full')[:len(signal)]
-XEE = pdf[0]
-index = XEE.index
-yEE = convolved_norsignal
-plt.plot(index, XEE )
-plt.plot(index, yEE*.5)
-# %%

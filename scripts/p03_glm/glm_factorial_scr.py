@@ -115,7 +115,7 @@ Path(join(save_dir)).mkdir(parents=True, exist_ok=True)
 
 
 # %% save betadf
-betadf.to_csv('/Users/h/Documents/projects_local/spacetop_biopac/data/EDA_metadata.csv')
+# betadf.to_csv('/Users/h/Documents/projects_local/spacetop_biopac/data/EDA_metadata.csv')
 # %%
 for ind, scl_fpath in enumerate(sorted(filtered_list)):
     # ======= NOTE: load data
@@ -218,6 +218,7 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     for cond_ind in np.arange(len(cond_list)):
         plt.plot(index, predictedXmatrix[cond_ind].T)
     plt.plot(index, y)
+    plt.title(f"{sub} {ses} {run}")
     # plt.show()
     plt.savefig(join(save_dir, basename[:-4]+'_modelfitted.png'))
     plt.close()
