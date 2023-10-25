@@ -103,7 +103,11 @@ Path(join(save_dir)).mkdir(parents=True, exist_ok=True)
 
 # %%
 pdf = pd.read_csv(scl_flist[0], sep='\t', header=None)
-# %%
+
+# %%----------------------------------------------------------------------
+#        outlier validation 1st iteration with another participant
+# ------------------------------------------------------------------------
+# TODO: isabel - check neurokit paramters regarding nk.find_outliers
 outlier_bool = nk.find_outliers(pdf, exclude=2, side='both', method='sd')
 import matplotlib.pyplot as plt
 
@@ -118,7 +122,9 @@ plt.scatter(x, outlier_data, color='red', label='Outliers')
 plt.legend()
 plt.show()
 
-# %% outlier type 2
+# %%----------------------------------------------------------------------
+#        outlier validation 2nd iteration with another participant
+# ------------------------------------------------------------------------
 scl_flist = sorted(glob.glob(join(scl_dir,'**', f'*sub-0034_ses-01_run-03*_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt'), recursive=True))
 pdf = pd.read_csv(scl_flist[0], sep='\t', header=None)
 
@@ -138,7 +144,10 @@ plt.show()
 
 # %%
 
-# %% outlier type 2
+# %% outlier validation 3rd iteration with another participant
+# %%----------------------------------------------------------------------
+#         outlier validation 3rd iteration with another participant
+# ------------------------------------------------------------------------
 scl_flist = sorted(glob.glob(join(scl_dir,'**', f'*sub-0051_ses-03_run-02*_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt'), recursive=True))
 pdf = pd.read_csv(scl_flist[0], sep='\t', header=None)
 
@@ -156,17 +165,14 @@ plt.scatter(x, outlier_data, color='red', label='Outliers')
 plt.legend()
 plt.show()
 # %%
-
-# outlier removal and interpolation
-# outlier_bool = [False, False, True, False, True, False]
-# outlier_indices = [i for i, val in enumerate(outlier_bool) if val]
-# ranges = [(index-1, index+1) for index in outlier_indices]
-
+# %%----------------------------------------------------------------------
+#                     outlier removal and interpolation
+# ----------------------------------------------------------------------
 
 # Step 1: Create a dummy dataset and a corresponding boolean list
 datavalues = pdf.iloc[:, 0].values
 outlier_bool = nk.find_outliers(pdf, exclude=2, side='both', method='sd')
-# outlier_bool = [False, False, True, False, True, False, False, False]
+# example) outlier_bool = [False, False, True, False, True, False, False, False]
 
 # Step 2: Identify indices of `True` values
 outlier_indices = [i for i, val in enumerate(outlier_bool) if val]
@@ -185,18 +191,21 @@ ranges.append((current_start, outlier_indices[-1]))
 
 print(ranges)
 # Step 4: Interpolate and impute
+# TODO: Isabel. validate that this is the right way to approach the outlier removals
+# TODO: line 191, 194
+interpolate_window = 10
 for start, end in ranges:
     # Calculate interpolated value
-    interpolated_value = (datavalues[start-1] + datavalues[end+1]) / 2
+    interpolated_value = (datavalues[start-interpolate_window] + datavalues[end+interpolate_window]) / 2
     
     # Impute the value at the outlier index
-    datavalues[start:end] = interpolated_value
+    datavalues[start-1:end+1] = interpolated_value
 
 print(datavalues)
 
 # %%
 plt.scatter(x, datavalues, color='blue', label='interpolation')
-plt.scatter(x, outlier_data, color='red', label='Outliers')
+# plt.scatter(x, outlier_data, color='red', label='Outliers')
 plt.legend()
 plt.show()
 # %%
