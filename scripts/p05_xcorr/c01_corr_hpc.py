@@ -1,6 +1,6 @@
 # %%
 import pandas as pd
-
+import argparse
 from scipy import signal
 import neurokit2 as nk
 import numpy as np
@@ -84,7 +84,7 @@ for i, physio_fname in enumerate(physio_flist):
         run = f"run-{matches.group(3)}"
     else:
         sub, ses, run = None, None, None
-
+    print(f"step 2: extract bids info {sub} {ses} {run}")
     # 3-1. load physio data ________________________________________________
     df = pd.read_csv(physio_fname, sep='\t')
 
@@ -100,15 +100,17 @@ for i, physio_fname in enumerate(physio_flist):
 
     confounds_fname = join(fmriprep_dir, sub, ses, 'func', f'{sub}_{ses}_task-social_acq-mb8_run-{int(matches.group(3))}_desc-confounds_timeseries.tsv')
 
-    schaefer = datasets.fetch_atlas_schaefer_2018(n_rois=400, resolution_mm=2)
-    masker = NiftiLabelsMasker(labels_img=schaefer['maps'], 
-                            labels=schaefer['labels']
+    schaefer = datasets.fetch_atlas_schaefer_2018(n_rois=400, resolution_mm=2, data_dir=save_top_dir)
+    #masker = NiftiLabelsMasker(labels_img=schaefer['maps'], 
+    #                        labels=schaefer['labels']
                             #    standardize=True, 
                             #    high_pass=128,
                             #    t_r=0.46
-                            )
-
+                            #)
+    masker = NiftiLabelsMasker(labels_img=join(save_top_dir, 'schaefer_2018', 'Schaefer2018_400Parcels_7Networks_order_FSLMNI152_2mm.nii.gz'))
+    #        labels=join(save_top_dir, 'schaefer_2018', 'Schaefer2018_400Parcels_7Networks_order.txt'))
     # 3-3. subset confounds
+    print(f"3-3 confound subset from fmriprep")
     confounds = pd.read_csv(confounds_fname,sep='\t')
     filter_col = [col for col in confounds if col.startswith("motion")]
     default_csf_24dof = [
@@ -154,9 +156,8 @@ for i, physio_fname in enumerate(physio_flist):
     subset_confounds = pd.concat([confounds[filter_col], dummy], axis=1)
 
     print("grabbed all the confounds and fmri data")
-    subset_confounds.head()
-    time_series = masker.fit_transform(fmri_fname,
-                                    confounds=subset_confounds.fillna(subset_confounds.median()))
+    print(subset_confounds.head())
+    time_series = masker.fit_transform(fmri_fname, confounds=subset_confounds.fillna(subset_confounds.median()))
 
     # 3-4. resample physio to fmri TR
     TR=0.46
@@ -186,8 +187,11 @@ for i, physio_fname in enumerate(physio_flist):
         Fs = 1/TR #1/TR
         
         physio_standardized = (physio_tr - np.nanmean(physio_tr)) / np.nanstd(physio_tr)
+        physio_standardized = physio_standardized[:len(fmri_standardized)]
         fmri_standardized = (second_roi_dropoutlier - np.nanmean(second_roi_dropoutlier))/np.nanstd(second_roi_dropoutlier)
+        
         tvec = np.arange(0, len(physio_standardized) / Fs, 1/Fs)
+        print(f"tvec: {len(tvec)}, physio:{physio_standardized.shape}, fmri:{fmri_standardized.shape}")
         data1 = physio_standardized
         data2 = np.nan_to_num(fmri_standardized)
 
@@ -255,7 +259,8 @@ for i, physio_fname in enumerate(physio_flist):
         plt.tight_layout()
         sns.despine()
         # plt.show()
-        fig.savefig(join(save_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_roi-{roi}_xcorr-fmri-physio.tsv"))
+        fig.savefig(join(save_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_roi-{roi}_xcorr-fmri-physio.png"))
+        plt.close(fig)
         # calculate xcorr and save in dataframe _________________________
         # Slicing acf and lags for the plot range
         acf_sliced = acf[len(acf)//2-maxlags:len(acf)//2+maxlags+1]
@@ -274,3 +279,4 @@ for i, physio_fname in enumerate(physio_flist):
         roi_df.iloc[roi] = [sub, ses, run, roi, max_acf_value, max_lag_time]
         save_fname = join(save_top_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_xcorr-fmri-physio.tsv")
         roi_df.to_csv(save_fname,sep='\t')
+plt.close('all')

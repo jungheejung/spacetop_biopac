@@ -8,9 +8,9 @@
 #SBATCH -e ./log_xcorr/xcorr_%A_%a.e
 #SBATCH --account=DBIC
 #SBATCH --partition=standard
-#SBATCH --array=1-13%10
+#SBATCH --array=1-133%10
 
-conda activate spacetop_env
+conda activate biopac
 echo "SLURMSARRAY: " ${SLURM_ARRAY_TASK_ID}
 ID=$((SLURM_ARRAY_TASK_ID-1))
 MAINDIR='/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue'
@@ -18,7 +18,7 @@ PHYSIO="/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop_data/physio/physio03_b
 FMRIPREP="/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop_data/derivatives/fmriprep/results/fmriprep/"
 SAVE="/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio/xcorr"
 
-./c01_corr_hpc.py \
+python ${PWD}/c01_corr_hpc.py \
 --slurm-id ${ID} \
 --physio-dir ${PHYSIO} \
 --fmriprep-dir ${FMRIPREP} \
