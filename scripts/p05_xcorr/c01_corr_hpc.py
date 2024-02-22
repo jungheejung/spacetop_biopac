@@ -71,7 +71,7 @@ Path(save_dir).mkdir(parents=True, exist_ok=True)
 
 # %% 1. glob physio data
 
-physio_flist = glob.glob(join(physio_dir, '**', f'sub-*_ses-*_task-cue_run-03-{runtype}_recording-ppg-eda-trigger_physio.tsv'), recursive=True)
+physio_flist = glob.glob(join(physio_dir, '**', f'{sub}_ses-*_task-cue_run-0*-{runtype}_recording-ppg-eda-trigger_physio.tsv'), recursive=True)
 
 # %%
 for i, physio_fname in enumerate(physio_flist):
@@ -187,9 +187,9 @@ for i, physio_fname in enumerate(physio_flist):
         Fs = 1/TR #1/TR
         
         physio_standardized = (physio_tr - np.nanmean(physio_tr)) / np.nanstd(physio_tr)
-        physio_standardized = physio_standardized[:len(fmri_standardized)]
+#        physio_standardized = physio_standardized[:len(fmri_standardized)]
         fmri_standardized = (second_roi_dropoutlier - np.nanmean(second_roi_dropoutlier))/np.nanstd(second_roi_dropoutlier)
-        
+        physio_standardized = physio_standardized[:len(fmri_standardized)]
         tvec = np.arange(0, len(physio_standardized) / Fs, 1/Fs)
         print(f"tvec: {len(tvec)}, physio:{physio_standardized.shape}, fmri:{fmri_standardized.shape}")
         data1 = physio_standardized
@@ -280,3 +280,4 @@ for i, physio_fname in enumerate(physio_flist):
         save_fname = join(save_top_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_xcorr-fmri-physio.tsv")
         roi_df.to_csv(save_fname,sep='\t')
 plt.close('all')
+print("complete!")
