@@ -1,4 +1,4 @@
-# %% libraries
+# %%
 import pandas as pd
 import argparse
 from scipy import signal
