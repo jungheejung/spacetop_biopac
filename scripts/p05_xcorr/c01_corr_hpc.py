@@ -1,4 +1,8 @@
 # %% libraries
+import nilearn
+print(nilearn.__version__)
+
+# %%
 import pandas as pd
 
 from scipy import signal
