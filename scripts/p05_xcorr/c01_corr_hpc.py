@@ -165,7 +165,8 @@ for i, physio_fname in enumerate(physio_flist):
     # resamp physio data to TR sampling rate
     physio_tr = nk.signal_resample(
                 df['physio_eda'].to_numpy(),  method='interpolation', sampling_rate=source_samplingrate, desired_sampling_rate=fmri_samplingrate)
-    
+    physio_outlier_bool = nk.find_outliers(physio_tr, exclude=3, side='both', method='sd')
+    physio_dropoutlier = np.where(physio_outlier_bool, np.nan, physio_tr)
     # 4. loop through ROI and calculate xcorr ________________________________________________
     # 4-1. create dataframe to store ROI data
     print(f"step 4: calculate xcorr _____________")
@@ -174,10 +175,10 @@ for i, physio_fname in enumerate(physio_flist):
         # remove outlier
         second_roi = time_series.T[roi]
 
-        outlier_bool = nk.find_outliers(second_roi, exclude=1, side='both', method='sd')
+        outlier_bool = nk.find_outliers(second_roi, exclude=3, side='both', method='sd')
                                         
-        column_values = second_roi
-        outlier_data = [column_values[i] if outlier else None for i, outlier in enumerate(outlier_bool)]
+        #column_values = second_roi
+        #outlier_data = [column_values[i] if outlier else None for i, outlier in enumerate(outlier_bool)]
 
         second_roi_dropoutlier = np.where(outlier_bool, np.nan, second_roi)
 
@@ -186,7 +187,7 @@ for i, physio_fname in enumerate(physio_flist):
 
         Fs = 1/TR #1/TR
         
-        physio_standardized = physio_tr - np.nanmean(physio_tr) # / np.nanstd(physio_tr)
+        physio_standardized = physio_dropoutlier - np.nanmean(physio_dropoutlier) # / np.nanstd(physio_tr)
         fmri_standardized = second_roi_dropoutlier - np.nanmean(second_roi_dropoutlier)#/np.nanstd(second_roi_dropoutlier)
         total_length = len(fmri_standardized)
         fmri_standardized = fmri_standardized[6:]
