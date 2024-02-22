@@ -250,11 +250,16 @@ for i, physio_fname in enumerate(physio_flist):
         acf = correlate(data1, data2, mode='full', method='auto')
         # acf /= len(data1)  # Normalizing
         norm_factor = np.sqrt(np.sum(data1**2) * np.sum(data2**2))
-        acf_normalized = acf / norm_factor
+        ccf = acf / norm_factor
         lags = np.arange(-maxlags, maxlags + 1) * (1./Fs)
 
+        max_lags_index = np.where((lags >= -maxlags) & (lags <= maxlags))
+        ccf = ccf[max_lags_index]
+        lags = lags[max_lags_index]
+        convert_lags = lags*(1./Fs);
         # ax4.plot(lags[len(lags)//2-maxlags:len(lags)//2+maxlags+1], acf[len(acf)//2-maxlags:len(acf)//2+maxlags+1])
-        ax4.plot(lags[len(lags)//2-maxlags:len(lags)//2+maxlags+1], acf_normalized[len(acf_normalized)//2-maxlags:len(acf_normalized)//2+maxlags+1])
+        # ax4.plot(lags[len(lags)//2-maxlags:len(lags)//2+maxlags+1], acf_normalized[len(acf_normalized)//2-maxlags:len(acf_normalized)//2+maxlags+1])
+        ax4.plot(convert_lags, ccf)
         ax4.grid(True)
         ax4.set_xlabel('time lag (s)')
         ax4.set_ylabel('correlation (r)')
@@ -276,7 +281,7 @@ for i, physio_fname in enumerate(physio_flist):
         plt.close(fig)
         # calculate xcorr and save in dataframe _________________________
         # Slicing acf and lags for the plot range
-        acf_sliced = acf_normalized[len(acf_normalized)//2-maxlags:len(acf_normalized)//2+maxlags+1]
+        acf_sliced = ccf[len(ccf)//2-maxlags:len(ccf)//2+maxlags+1]
         lags_sliced = lags[len(lags)//2-maxlags:len(lags)//2+maxlags+1]
 
         # Find the maximum correlation value and corresponding time lag
