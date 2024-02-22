@@ -257,6 +257,7 @@ for i, physio_fname in enumerate(physio_flist):
         sns.despine()
         # plt.show()
         fig.savefig(join(save_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_roi-{roi}_xcorr-fmri-physio.png"))
+        plt.close(fig)
         # calculate xcorr and save in dataframe _________________________
         # Slicing acf and lags for the plot range
         acf_sliced = acf[len(acf)//2-maxlags:len(acf)//2+maxlags+1]
@@ -275,3 +276,4 @@ for i, physio_fname in enumerate(physio_flist):
         roi_df.iloc[roi] = [sub, ses, run, roi, max_acf_value, max_lag_time]
         save_fname = join(save_top_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_xcorr-fmri-physio.tsv")
         roi_df.to_csv(save_fname,sep='\t')
+plt.close('all')
