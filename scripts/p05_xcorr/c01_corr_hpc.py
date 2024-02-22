@@ -187,24 +187,28 @@ for i, physio_fname in enumerate(physio_flist):
         Fs = 1/TR #1/TR
         
         physio_standardized = physio_tr - np.nanmean(physio_tr) # / np.nanstd(physio_tr)
-#        physio_standardized = physio_standardized[:len(fmri_standardized)]
-        #fmri_standardized = (second_roi_dropoutlier - np.nanmean(second_roi_dropoutlier))/np.nanstd(second_roi_dropoutlier)
-        #physio_standardized = physio_standardized[:len(fmri_standardized)]
-        #physio_standardized = physio_standardized[6:len(fmri_standardized)]
         fmri_standardized = second_roi_dropoutlier - np.nanmean(second_roi_dropoutlier)#/np.nanstd(second_roi_dropoutlier)
         total_length = len(fmri_standardized)
         fmri_standardized = fmri_standardized[6:]
         physio_standardized = physio_standardized[6:total_length] 
         tvec = np.arange(0, len(physio_standardized) / Fs, 1/Fs)
         print(f"tvec: {len(tvec)}, physio:{physio_standardized.shape}, fmri:{fmri_standardized.shape}")
+        from scipy.interpolate import interp1d
+        # mean_data1 = np.nanmean(physio_standardized)
+        # mean_data2 = np.nanmean(fmri_standardized)
 
-        mean_data1 = np.nanmean(physio_standardized)
-        mean_data2 = np.nanmean(fmri_standardized)
+        # # Replace NaN values with the computed mean
+        # data1 = np.where(np.isnan(physio_standardized), mean_data1, physio_standardized)
+        # data2 = np.where(np.isnan(fmri_standardized), mean_data2, fmri_standardized)
+        def interpolate_data(data):
+            time_points = np.arange(len(data))
+            valid = ~np.isnan(data)  # Mask of valid (non-NaN) data points
+            interp_func = interp1d(time_points[valid], data[valid], kind='linear', fill_value="extrapolate")
+            return interp_func(time_points)
 
-        # Replace NaN values with the computed mean
-        data1 = np.where(np.isnan(physio_standardized), mean_data1, physio_standardized)
-        data2 = np.where(np.isnan(fmri_standardized), mean_data2, fmri_standardized)
-
+        # Interpolate missing values
+        data1 = interpolate_data(physio_standardized)
+        data2 = interpolate_data(fmri_standardized)
         # 4-2. plot parameters
         fig = plt.figure(figsize=(16, 8))
         gs = gridspec.GridSpec(2, 4, figure=fig)
