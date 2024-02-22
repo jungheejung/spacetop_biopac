@@ -106,9 +106,9 @@ for i, physio_fname in enumerate(physio_flist):
                             #    standardize=True, 
                             #    high_pass=128,
                             #    t_r=0.46
-                            )
-    masker = NiftiLabelsMasker(labels_img=join(save_top_dir, 'schaefer_2018', 'Schaefer2018_400Parcels_7Networks_order_FSLMNI152_2mm.nii.gz'),
-labels=join(save_top_dir, 'schaefer_2018', 'Schaefer2018_400Parcels_7Networks_order.txt'))
+                            #)
+    masker = NiftiLabelsMasker(labels_img=join(save_top_dir, 'schaefer_2018', 'Schaefer2018_400Parcels_7Networks_order_FSLMNI152_2mm.nii.gz'))
+    #        labels=join(save_top_dir, 'schaefer_2018', 'Schaefer2018_400Parcels_7Networks_order.txt'))
     # 3-3. subset confounds
     print(f"3-3 confound subset from fmriprep")
     confounds = pd.read_csv(confounds_fname,sep='\t')
@@ -256,7 +256,7 @@ labels=join(save_top_dir, 'schaefer_2018', 'Schaefer2018_400Parcels_7Networks_or
         plt.tight_layout()
         sns.despine()
         # plt.show()
-        fig.savefig(join(save_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_roi-{roi}_xcorr-fmri-physio.tsv"))
+        fig.savefig(join(save_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_roi-{roi}_xcorr-fmri-physio.png"))
         # calculate xcorr and save in dataframe _________________________
         # Slicing acf and lags for the plot range
         acf_sliced = acf[len(acf)//2-maxlags:len(acf)//2+maxlags+1]
