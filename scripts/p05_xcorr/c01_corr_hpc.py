@@ -84,7 +84,7 @@ for i, physio_fname in enumerate(physio_flist):
         run = f"run-{matches.group(3)}"
     else:
         sub, ses, run = None, None, None
-
+    print(f"step 2: extract bids info {sub} {ses} {run}")
     # 3-1. load physio data ________________________________________________
     df = pd.read_csv(physio_fname, sep='\t')
 
@@ -101,14 +101,16 @@ for i, physio_fname in enumerate(physio_flist):
     confounds_fname = join(fmriprep_dir, sub, ses, 'func', f'{sub}_{ses}_task-social_acq-mb8_run-{int(matches.group(3))}_desc-confounds_timeseries.tsv')
 
     schaefer = datasets.fetch_atlas_schaefer_2018(n_rois=400, resolution_mm=2, data_dir=save_top_dir)
-    masker = NiftiLabelsMasker(labels_img=schaefer['maps'], 
-                            labels=schaefer['labels']
+    #masker = NiftiLabelsMasker(labels_img=schaefer['maps'], 
+    #                        labels=schaefer['labels']
                             #    standardize=True, 
                             #    high_pass=128,
                             #    t_r=0.46
                             )
-
+    masker = NiftiLabelsMasker(labels_img=join(save_top_dir, 'schaefer_2018', 'Schaefer2018_400Parcels_7Networks_order_FSLMNI152_2mm.nii.gz'),
+labels=join(save_top_dir, 'schaefer_2018', 'Schaefer2018_400Parcels_7Networks_order.txt'))
     # 3-3. subset confounds
+    print(f"3-3 confound subset from fmriprep")
     confounds = pd.read_csv(confounds_fname,sep='\t')
     filter_col = [col for col in confounds if col.startswith("motion")]
     default_csf_24dof = [
@@ -154,9 +156,8 @@ for i, physio_fname in enumerate(physio_flist):
     subset_confounds = pd.concat([confounds[filter_col], dummy], axis=1)
 
     print("grabbed all the confounds and fmri data")
-    subset_confounds.head()
-    time_series = masker.fit_transform(fmri_fname,
-                                    confounds=subset_confounds.fillna(subset_confounds.median()))
+    print(subset_confounds.head())
+    time_series = masker.fit_transform(fmri_fname, confounds=subset_confounds.fillna(subset_confounds.median()))
 
     # 3-4. resample physio to fmri TR
     TR=0.46
