@@ -192,8 +192,9 @@ for i, physio_fname in enumerate(physio_flist):
         #physio_standardized = physio_standardized[:len(fmri_standardized)]
         #physio_standardized = physio_standardized[6:len(fmri_standardized)]
         fmri_standardized = second_roi_dropoutlier - np.nanmean(second_roi_dropoutlier)#/np.nanstd(second_roi_dropoutlier)
+        total_length = len(fmri_standardized)
         fmri_standardized = fmri_standardized[6:]
-        physio_standardized = physio_standardized[6:len(fmri_standardized)]
+        physio_standardized = physio_standardized[6:total_length] 
         tvec = np.arange(0, len(physio_standardized) / Fs, 1/Fs)
         print(f"tvec: {len(tvec)}, physio:{physio_standardized.shape}, fmri:{fmri_standardized.shape}")
         data1 = physio_standardized
