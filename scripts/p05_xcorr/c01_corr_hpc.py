@@ -197,8 +197,13 @@ for i, physio_fname in enumerate(physio_flist):
         physio_standardized = physio_standardized[6:total_length] 
         tvec = np.arange(0, len(physio_standardized) / Fs, 1/Fs)
         print(f"tvec: {len(tvec)}, physio:{physio_standardized.shape}, fmri:{fmri_standardized.shape}")
-        data1 = physio_standardized
-        data2 = np.nan_to_num(fmri_standardized)
+
+        mean_data1 = np.nanmean(physio_standardized)
+        mean_data2 = np.nanmean(fmri_standardized)
+
+        # Replace NaN values with the computed mean
+        data1 = np.where(np.isnan(physio_standardized), mean_data1, physio_standardized)
+        data2 = np.where(np.isnan(fmri_standardized), mean_data2, fmri_standardized)
 
         # 4-2. plot parameters
         fig = plt.figure(figsize=(16, 8))
@@ -243,10 +248,13 @@ for i, physio_fname in enumerate(physio_flist):
         # 4-2.D: Compute and plot cross-correlation
         maxlags = int(Fs * 30)
         acf = correlate(data1, data2, mode='full', method='auto')
-        acf /= len(data1)  # Normalizing
+        # acf /= len(data1)  # Normalizing
+        norm_factor = np.sqrt(np.sum(data1**2) * np.sum(data2**2))
+        acf_normalized = acf / norm_factor
         lags = np.arange(-maxlags, maxlags + 1) * (1./Fs)
 
-        ax4.plot(lags[len(lags)//2-maxlags:len(lags)//2+maxlags+1], acf[len(acf)//2-maxlags:len(acf)//2+maxlags+1])
+        # ax4.plot(lags[len(lags)//2-maxlags:len(lags)//2+maxlags+1], acf[len(acf)//2-maxlags:len(acf)//2+maxlags+1])
+        ax4.plot(lags[len(lags)//2-maxlags:len(lags)//2+maxlags+1], acf_normalized[len(acf_normalized)//2-maxlags:len(acf_normalized)//2+maxlags+1])
         ax4.grid(True)
         ax4.set_xlabel('time lag (s)')
         ax4.set_ylabel('correlation (r)')
@@ -268,7 +276,7 @@ for i, physio_fname in enumerate(physio_flist):
         plt.close(fig)
         # calculate xcorr and save in dataframe _________________________
         # Slicing acf and lags for the plot range
-        acf_sliced = acf[len(acf)//2-maxlags:len(acf)//2+maxlags+1]
+        acf_sliced = acf_normalized[len(acf_normalized)//2-maxlags:len(acf_normalized)//2+maxlags+1]
         lags_sliced = lags[len(lags)//2-maxlags:len(lags)//2+maxlags+1]
 
         # Find the maximum correlation value and corresponding time lag
@@ -278,9 +286,6 @@ for i, physio_fname in enumerate(physio_flist):
 
 
         # Create a DataFrame to store these values _________________________
-        # df = pd.DataFrame({'Maximum Correlation Value': [max_acf_value],
-        #                    'Time Lag (s)': [max_lag_time]})
-
         roi_df.iloc[roi] = [sub, ses, run, roi, max_acf_value, max_lag_time]
         save_fname = join(save_top_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_xcorr-fmri-physio.tsv")
         roi_df.to_csv(save_fname,sep='\t')
