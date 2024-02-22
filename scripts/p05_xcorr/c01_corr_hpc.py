@@ -1,6 +1,6 @@
 # %% libraries
 import pandas as pd
-
+import argparse
 from scipy import signal
 import neurokit2 as nk
 import numpy as np
@@ -100,7 +100,7 @@ for i, physio_fname in enumerate(physio_flist):
 
     confounds_fname = join(fmriprep_dir, sub, ses, 'func', f'{sub}_{ses}_task-social_acq-mb8_run-{int(matches.group(3))}_desc-confounds_timeseries.tsv')
 
-    schaefer = datasets.fetch_atlas_schaefer_2018(n_rois=400, resolution_mm=2)
+    schaefer = datasets.fetch_atlas_schaefer_2018(n_rois=400, resolution_mm=2, data_dir=save_top_dir)
     masker = NiftiLabelsMasker(labels_img=schaefer['maps'], 
                             labels=schaefer['labels']
                             #    standardize=True, 
