@@ -94,10 +94,7 @@ fig_plotly.update_traces(marker=dict(size=3),
 
 
 
-# fig_plotly.add_vline()
-# fig_plotly.add_vline(x=2, line_width=2, line_dash="dash", line_color="red",  exclude_empty_subplots=True, row = 1   )
-# fig_plotly.add_vline(x=7, line_width=2, line_dash="dash", line_color="green")
-# fig_plotly.add_vline(x=9, line_width=2, line_dash="dash", line_color="magenta")
+
 fig_plotly.update_layout(
     width=500, height=1000,
     # margin=dict(l=20, r=20, t=20, b=20),
@@ -105,41 +102,3 @@ fig_plotly.update_layout(
 )
 
 fig_plotly
-# %% GO FIGURE
-# import plotly.graph_objects as go
-# fig = go.Figure()
-# # Add scatter trace with medium sized markers
-# fig.add_trace(
-#     go.Scatter(
-#         mode='markers',
-#         x=melt_df.onset,
-#         y=melt_df.stacked_trials,
-#         marker=dict(
-#             color='rgba(135, 206, 250, 0.5)',
-#             size=2,
-#             line=dict(
-#                 color='MediumPurple',
-#                 width=2
-#             )
-#         ),
-#         showlegend=False
-#     )
-# )
-# lines = {'ttl1':2,'ttl2':7,'ttl3':9}
-# for k in lines.keys():
-#     go.layout.Shape(type='line',
-#                     yref="y",
-#                     xref="x",
-#                     x0=lines[k],
-#                     y0=-1,
-#                     x1=lines[k],
-#                     y1=melt_df['stacked_trials'].max()*1,)
-# # trace2 = fig.add_histogram(x=melt_df[melt_df['ttl'] == 'ttl_r1'].onset,
-# #  name='x density', marker=dict(color='#1f77b4', opacity=0.7),
-# #                       yaxis='y2'
-# #                      )
-# trace2 = fig.add_histogram(x=melt_df.onset, name='x density', marker=dict(color='#1f77b4', opacity=0.7),
-#                       yaxis='y2'
-#                      )
-
-# %%
