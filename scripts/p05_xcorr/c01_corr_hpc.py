@@ -172,22 +172,22 @@ for i, physio_fname in enumerate(physio_flist):
     roi_df = pd.DataFrame(index=range(time_series.shape[1]), columns=['sub', 'ses', 'run', 'roi', 'Maximum Correlation Value', 'Time Lag (s)'])
     for roi in range(time_series.shape[1]):
         # remove outlier
-        second_roi = time_series.T[roi]
+        roi = time_series.T[roi]
 
-        outlier_bool = nk.find_outliers(second_roi, exclude=1, side='both', method='sd')
+        outlier_bool = nk.find_outliers(roi, exclude=1, side='both', method='sd')
                                         
-        column_values = second_roi
+        column_values = roi
         outlier_data = [column_values[i] if outlier else None for i, outlier in enumerate(outlier_bool)]
 
-        second_roi_dropoutlier = np.where(outlier_bool, np.nan, second_roi)
+        roi_dropoutlier = np.where(outlier_bool, np.nan, roi)
 
 
         # 4-2. plot and save
 
         Fs = 1/TR #1/TR
         
-        physio_standardized = physio_tr - np.nanmean(physio_tr) # / np.nanstd(physio_tr)
-        fmri_standardized = second_roi_dropoutlier - np.nanmean(second_roi_dropoutlier)#/np.nanstd(second_roi_dropoutlier)
+        physio_standardized = physio_tr - np.nanmean(physio_tr)  / np.nanstd(physio_tr)
+        fmri_standardized = roi_dropoutlier - np.nanmean(roi_dropoutlier)/np.nanstd(roi_dropoutlier)
         total_length = len(fmri_standardized)
         fmri_standardized = fmri_standardized[6:]
         physio_standardized = physio_standardized[6:total_length] 
@@ -289,10 +289,10 @@ for i, physio_fname in enumerate(physio_flist):
         lags_sliced = lags[len(lags)//2-maxlags:len(lags)//2+maxlags+1]
 
         # Find the maximum correlation value and corresponding time lag
-        max_acf_value = np.max(acf_sliced)
-        max_acf_index = np.argmax(acf_sliced)
+        absolute_values = [abs(number) for number in acf_sliced]  # Convert all numbers to their 
+        max_acf_value = np.max(absolute_values)
+        max_acf_index = np.argmax(absolute_values)
         max_lag_time = lags_sliced[max_acf_index]
-
 
         # Create a DataFrame to store these values _________________________
         roi_df.iloc[roi] = [sub, ses, run, roi, max_acf_value, max_lag_time]
