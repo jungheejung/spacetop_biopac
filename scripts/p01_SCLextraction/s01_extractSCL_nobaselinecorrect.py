@@ -64,7 +64,7 @@ def main():
     SCL_epoch_start = args.scl_epochstart
     SCL_epoch_end = args.scl_epochend
     ttl_index = args.ttl_index
-    baselinecorrect = args.baselinecorrect
+    baselinecorrect = str_to_bool(args.baselinecorrect)
     remove_subject_int = args.exclude_sub
 
 # %% -------------------------------------------------------------------
@@ -406,7 +406,8 @@ def main():
 # %% -------------------------------------------------------------------
 #                        argparse parameters
 # ----------------------------------------------------------------------
-
+def str_to_bool(s):
+    return s.lower() in ['true', '1', 't', 'y', 'yes']
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input-physiodir",
