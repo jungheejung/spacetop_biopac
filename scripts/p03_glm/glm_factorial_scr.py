@@ -107,7 +107,8 @@ def merge_qc_scl(qc_fname, scl_flist):
     qc['run'] = qc['param_run_num']
     qc['task'] = qc['param_task_name']
 
-    qc_sub = qc.loc[qc['Signal quality'] == 'include', ['sub', 'ses', 'run', 'task', 'Signal quality']]
+    qc_sub = qc.loc[qc['Signal quality'] == 'include', 
+                    ['sub', 'ses', 'run', 'task', 'Signal quality']]
     
     scl_file = pd.DataFrame()
     scl_file['filename'] = pd.DataFrame(scl_flist)
@@ -142,10 +143,10 @@ def boxcar_function(x, start, end):
 #                               parameters
 # ------------------------------------------------------------------------------
 scl_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio/physio01_SCL_25s'                                   
-save_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio/glm/factorial'
+save_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio/glm/factorial_boxcar'
 
 scl_dir = '/Volumes/spacetop_projects_cue/analysis/physio/physio01_SCL_25s' 
-save_dir = '/Volumes/spacetop_projects_cue/analysis/physio/glm/factorial'                                      
+save_dir = '/Volumes/spacetop_projects_cue/analysis/physio/glm/factorial_boxcar'                                      
 
 # # local
 # scl_dir = '/Users/h/Documents/projects_local/sandbox/physioresults/physio01_SCL'  
@@ -159,7 +160,8 @@ TR = 0.46
 task = 'pain'
 
 # glob file list _______________________________________________________________
-scl_flist = sorted(glob.glob(join(scl_dir,'**', f'*{task}_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt'), recursive=True))
+scl_flist = sorted(glob.glob(join(scl_dir,'**', f'*{task}_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt'), 
+                             recursive=True))
 
 # create empty dataframe _______________________________________________________
 df_column = ['filename', 'sub', 'ses', 'run', 'runtype', 'intercept'] 
@@ -172,7 +174,7 @@ betadf = pd.DataFrame(index=range(len(filtered_list)), columns=df_column + cond_
 Path(join(save_dir)).mkdir(parents=True, exist_ok=True)
 
 # %%----------------------------------------------------------------------------
-#                               glm estiation
+#                               glm estimation
 # ------------------------------------------------------------------------------
 for ind, scl_fpath in enumerate(sorted(filtered_list)):
     # ======= NOTE: load data
@@ -264,7 +266,9 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     Y_r = np.array(y).reshape(-1,1)
     reg = linear_model.LinearRegression().fit(X_r, Y_r)
     reg.score(X_r, Y_r)
-    print(f"coefficient: {reg.coef_[0][0]}, {reg.coef_[0][1]}, {reg.coef_[0][2]}, {reg.coef_[0][3]}, {reg.coef_[0][4]}, {reg.coef_[0][5]}, intercept: {reg.intercept_[0]}")
+    print(f"coefficient: {reg.coef_[0][0]}, {reg.coef_[0][1]}, {reg.coef_[0][2]}, \
+          {reg.coef_[0][3]}, {reg.coef_[0][4]}, {reg.coef_[0][5]}, \
+          intercept: {reg.intercept_[0]}")
 
     betadf.at[ind, cond_list[0]] = reg.coef_[0][0]
     betadf.at[ind, cond_list[1]] = reg.coef_[0][1]
@@ -307,24 +311,25 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
             stop_index = int((stop + shift_time) * data_points_per_second)
             predicted_signal[start_index:stop_index] = stim_dict[cond] * reg.coef_[0][ind]
 
-        predicted_convolved_signal = convolve(predicted_signal, scr_normalized , mode='full')[:len(predicted_signal)]
+        predicted_convolved_signal = convolve(predicted_signal, scr_normalized, 
+                                              mode='full')[:len(predicted_signal)]
         predicted_total_signal.append(predicted_convolved_signal)
 
     # plot convolved signal ____________________________________________________
     boxcar_summed = np.sum(np.stack(boxcar), axis=0) * np.mean(reg.coef_[0])
 
     predictedXmatrix = np.vstack(predicted_total_signal)
-    y = winsor_physio_interp# pdf[0]
-    index = np.arange(len(y)) #y.index
+    y = winsor_physio_interp
+    index = np.arange(len(y)) 
     for cond_ind in np.arange(len(cond_list)):
         plt.plot(index, predictedXmatrix[cond_ind].T)
     plt.plot(index, y)
     plt.plot(index, boxcar_summed)
     plt.title(f"{sub} {ses} {run}")
-    # plt.show()
     plt.savefig(join(save_dir, basename[:-4]+'_modelfitted.png'))
     plt.close()
-# extract metadata and save dataframe ____________________________________________________
+
+# extract metadata and save dataframe __________________________________________
 betadf['sub']= betadf['filename'].str.extract(r'(sub-\d+)')
 betadf['ses'] = betadf['filename'].str.extract(r'(ses-\d+)')
 betadf['run'] = betadf['filename'].str.extract(r'(run-\d+)')
@@ -332,10 +337,17 @@ betadf['runtype'] = betadf['filename'].str.extract(r'runtype-(\w+)_')
 
 betadf.to_csv(join(save_dir, f'glm-factorial_task-{task}_scr.tsv'), sep='\t')
 # TODO: save metadata in json
-{"shift":3, 
+json_fname = join(save_dir, f'glm-factorial_task-{task}_scr.json')
+
+json_content = {"shift":3, 
  "samplingrate_of_onsettime": 2000, 
  "samplingrate_of_SCL": 25, 
  "TR": 0.46, 
- "source_code": "scripts/p03_glm/glm.py",
- "regressor": "stimulus condition convolve"}
+ "source_code": "scripts/p03_glm/glm_factorial_scr.py",
+ "regressor": "stimulus condition convolve w/ 1) canonical scr \
+ 2) boxcar for onset duration"}
+
+with open(json_fname, 'w') as json_file:
+    json.dump(json_content, json_file, indent=4)
+
 
