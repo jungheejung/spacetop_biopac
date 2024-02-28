@@ -327,8 +327,10 @@ def main():
         elif baselinecorrect == False:
             baseline_length = 0
             eda_fname = f"{sub}_{ses}_{run}_runtype-{run_type}_epochstart-{SCL_epoch_start}_epochend-{SCL_epoch_end}_baselinecorrect-{baselinecorrect}_samplingrate-{dest_samplingrate}_physio-eda"
+            resamp = nk.signal_resample(
+                physio_df['physio_eda'].to_numpy(),  method='interpolation', sampling_rate=source_samplingrate, desired_sampling_rate=dest_samplingrate)
             #physio_df.to_tsv(join(output_savedir, 'physio01_SCL', sub, ses, edabl_fname + '.tsv'), sep='\t')
-            np.savetxt(join(output_savedir, 'physio01_SCL', sub, ses, eda_fname + ".txt"), physio_df['physio_eda'], delimiter=",")
+            np.savetxt(join(output_savedir, 'physio01_SCL', sub, ses, eda_fname + ".txt"),resamp, delimiter=",")
             tonic_length, scl_raw, scl_epoch = utils.preprocess.extract_SCL_custom(
                 df=physio_df,
                 eda_col='physio_eda', 
