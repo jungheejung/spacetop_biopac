@@ -5,19 +5,22 @@
 # %%----------------------------------------------------------------------------
 #                               libraries
 # ------------------------------------------------------------------------------
-import os, glob, re
+import os, glob, re, json
 from os.path import join
 from pathlib import Path
 import pandas as pd
 import numpy as np
 from scipy.signal import convolve
+from scipy import stats
+from scipy.interpolate import interp1d
 from sklearn import linear_model
 import nilearn
 from nilearn import glm
-import json
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
-from scipy.interpolate import interp1d
+from feature_engine.outliers import Winsorizer
+
+
 
 # %%----------------------------------------------------------------------------
 #                               functions
@@ -60,12 +63,20 @@ def filter_good_data(filenames, baddata_df):
     return good_data
 
 def winsorize_mad(data, threshold=3.5):
-    winsorized_data = data
-    median = np.median(data)
-    mad = np.median(np.abs(data - median))
-    threshold_value = threshold * mad
-    winsorized_data[winsorized_data < -threshold_value] = np.nan
-    winsorized_data[winsorized_data > threshold_value] = np.nan
+    # winsorized_data = data
+    # median = np.median(data)
+    # mad = stats.median_abs_deviation(data)
+    # # mad = np.median(np.abs(data - median))
+    # # threshold_value = threshold * mad
+    # lower_bound = median - threshold * mad
+    # upper_bound = median + threshold * mad
+    # winsorized_data[winsorized_data < -threshold_value] = np.nan
+    # winsorized_data[winsorized_data > threshold_value] = np.nan
+    # lower_proportion = np.sum(data < lower_bound) / len(data)
+    # upper_proportion = np.sum(data > upper_bound) / len(data)
+    wz = Winsorizer(capping_method='mad', tail='both', fold=threshold)
+    winsorized_data = wz.fit_transform(data)
+    # winsorized_data = stats.mstats.winsorize(data, limits=(lower_proportion, upper_proportion))
     # winsorized_data = np.clip(data, median - threshold_value, median + threshold_value)
     return winsorized_data
 
@@ -193,8 +204,8 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
 
 
     # remove outlier ___________________________________________________________
-    winsor_physio = winsorize_mad(pdf[0].values, threshold=5)
-    winsor_physio_interp = interpolate_data(winsor_physio)
+    winsor_physio = winsorize_mad(pdf, threshold=7)
+    # winsor_physio_interp = interpolate_data(winsor_physio)
 
 
     # fetch SCR curve __________________________________________________________
@@ -215,7 +226,7 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     total_runlength_sec = 400; data_points_per_second = 25
     shift_time = 0
     array_length = total_runlength_sec * data_points_per_second
-    signal = np.zeros(len(winsor_physio_interp)) #np.zeros(total_runlength_sec * data_points_per_second)
+    signal = np.zeros(len(winsor_physio)) #np.zeros(total_runlength_sec * data_points_per_second)
 
     stim_dict = {"high_stim-high_cue": 1,
                  "high_stim-low_cue": 1,
@@ -233,7 +244,7 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     total_regressor = []
     boxcar = []
     for cond in cond_list:
-        signal  = np.zeros(len(winsor_physio_interp)) 
+        signal  = np.zeros(len(winsor_physio)) 
         cond_index = metadf.loc[metadf['condition'] == cond].index.values
         event_start_time = np.array(js['event_stimuli']['start'])[cond_index]/samplingrate
         event_stop_time = np.array(js['event_stimuli']['stop'])[cond_index]/samplingrate
@@ -251,7 +262,7 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     # plot convolved signal ____________________________________________________
     Xmatrix = np.vstack(total_regressor)
     normalized_Xmatrix = (Xmatrix - Xmatrix.min()) / (Xmatrix.max() - Xmatrix.min())
-    y = winsor_physio_interp #pdf[0]
+    y = winsor_physio #pdf[0]
     index = np.arange(len(y))#y.index
     for cond_ind in np.arange(len(cond_list)):
         plt.plot(index, normalized_Xmatrix[cond_ind].T)
@@ -284,7 +295,7 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     total_regressor = []
     boxcar = []
     for cond in cond_list:
-        signal  = np.zeros(len(winsor_physio_interp)) 
+        signal  = np.zeros(len(winsor_physio)) 
         cond_index = metadf.loc[metadf['condition'] == cond].index.values
         event_start_time = np.array(js['event_stimuli']['start'])[cond_index]/samplingrate
         event_stop_time = np.array(js['event_stimuli']['stop'])[cond_index]/samplingrate
@@ -301,7 +312,7 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     predicted_total_signal = []
     for ind, cond in enumerate(cond_list):
         print(ind)
-        predicted_signal  = np.zeros(len(winsor_physio_interp)) 
+        predicted_signal  = np.zeros(len(winsor_physio)) 
         cond_index = metadf.loc[metadf['condition'] == cond].index.values
         event_start_time = np.array(js['event_stimuli']['start'])[cond_index]/samplingrate
         event_stop_time = np.array(js['event_stimuli']['stop'])[cond_index]/samplingrate
@@ -319,7 +330,7 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     boxcar_summed = np.sum(np.stack(boxcar), axis=0) * np.mean(reg.coef_[0])
 
     predictedXmatrix = np.vstack(predicted_total_signal)
-    y = winsor_physio_interp
+    y = winsor_physio
     index = np.arange(len(y)) 
     for cond_ind in np.arange(len(cond_list)):
         plt.plot(index, predictedXmatrix[cond_ind].T)
@@ -351,3 +362,5 @@ with open(json_fname, 'w') as json_file:
     json.dump(json_content, json_file, indent=4)
 
 
+
+# %%
