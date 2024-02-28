@@ -330,7 +330,11 @@ def main():
             resamp = nk.signal_resample(
                 physio_df['physio_eda'].to_numpy(),  method='interpolation', sampling_rate=source_samplingrate, desired_sampling_rate=dest_samplingrate)
             #physio_df.to_tsv(join(output_savedir, 'physio01_SCL', sub, ses, edabl_fname + '.tsv'), sep='\t')
-            np.savetxt(join(output_savedir, 'physio01_SCL', sub, ses, eda_fname + ".txt"),resamp, delimiter=",")
+            resamp_center = resamp - np.nanmean(resamp)
+            scr_signal = nk.signal_sanitize(resamp_center)
+            scr_filters = nk.signal_filter(scr_signal,sampling_rate=dest_samplingrate, highcut=1, method="butterworth", order=2)
+            scr_detrend = nk.signal_detrend(scr_filters)
+            np.savetxt(join(output_savedir, 'physio01_SCL', sub, ses, eda_fname + ".txt"),scr_detrend, delimiter=",")
             tonic_length, scl_raw, scl_epoch = utils.preprocess.extract_SCL_custom(
                 df=physio_df,
                 eda_col='physio_eda', 
