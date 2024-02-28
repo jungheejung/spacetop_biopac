@@ -23,6 +23,7 @@ from scipy.signal import welch, csd, correlate, coherence
 from scipy.signal.windows import hann
 import matplotlib.gridspec as gridspec
 import seaborn as sns
+from scipy.interpolate import interp1d
 # %%
 __author__ = "Heejung Jung"
 __copyright__ = "Spatial Topology Project"
@@ -33,7 +34,7 @@ __maintainer__ = "Heejung Jung"
 __email__ = "heejung.jung@colorado.edu"
 __status__ = "Development" 
 
-# 0. argparse ________________________________________________________________________________
+# 0. argparse __________________________________________________________________
 parser = argparse.ArgumentParser()
 parser.add_argument("--slurm-id", type=int,
                     help="specify slurm array id")
@@ -41,14 +42,13 @@ parser.add_argument("--physio-dir", type=str,
                     help="directory for physio data (BIDS)")
 parser.add_argument("--fmriprep-dir", type=str,
                     help="directory for physio data (BIDS)")
-parser.add_argument("--save-dir", type=str,
+parser.add_argument("--save-dir", 
+type=str,
                     help="directory for saving Xcorr data")
 parser.add_argument("-r", "--runtype",
-                    choices=['pain','vicarious','cognitive','all'], help="specify runtype name (e.g. pain, cognitive, variance)")
-# parser.add_argument("--run-num", type=int,
-#                     help="specify slurm array id")
-# parser.add_argument("-r", "--runtype",
-#                     choices=['pain','vicarious','cognitive','all'], help="specify runtype name (e.g. pain, cognitive, variance)")
+                    choices=['pain','vicarious','cognitive','all'], 
+                    help="specify runtype name (e.g. pain, cognitive, variance)")
+
 args = parser.parse_args()
 print(args.slurm_id)
 slurm_id = args.slurm_id # e.g. 1, 2
@@ -68,6 +68,22 @@ Path(save_dir).mkdir(parents=True, exist_ok=True)
 # fmriprep_dir = '/Users/h/Documents/projects_local/sandbox/fmriprep_bold'
 # save_dir = '/Users/h/Documents/projects_local/sandbox'
 # runtyp = 'pain'
+def winsorize_mad(data, threshold=3.5):
+    winsorized_data = data
+    median = np.median(data)
+    mad = np.median(np.abs(data - median))
+    threshold_value = threshold * mad
+    winsorized_data[winsorized_data < -threshold_value] = np.nan
+    winsorized_data[winsorized_data > threshold_value] = np.nan
+    # winsorized_data = np.clip(data, median - threshold_value, median + threshold_value)
+    return winsorized_data
+
+
+def interpolate_data(data):
+    time_points = np.arange(len(data))
+    valid = ~np.isnan(data)  # Mask of valid (non-NaN) data points
+    interp_func = interp1d(time_points[valid], data[valid], kind='linear', fill_value="extrapolate")
+    return interp_func(time_points)
 
 # %% 1. glob physio data
 
@@ -87,7 +103,7 @@ for i, physio_fname in enumerate(physio_flist):
     print(f"step 2: extract bids info {sub} {ses} {run}")
     # 3-1. load physio data ________________________________________________
     df = pd.read_csv(physio_fname, sep='\t')
-
+    # resample physio data (2000hz to 25hz)
     source_samplingrate=2000
     dest_samplingrate=25
     resamp = nk.signal_resample(
@@ -173,22 +189,18 @@ for i, physio_fname in enumerate(physio_flist):
     roi_df = pd.DataFrame(index=range(time_series.shape[1]), columns=['sub', 'ses', 'run', 'roi', 'Maximum Correlation Value', 'Time Lag (s)'])
     for roi in range(time_series.shape[1]):
         # remove outlier
-        second_roi = time_series.T[roi]
+        roi = time_series.T[roi]
 
-        outlier_bool = nk.find_outliers(second_roi, exclude=3, side='both', method='sd')
-                                        
-        #column_values = second_roi
-        #outlier_data = [column_values[i] if outlier else None for i, outlier in enumerate(outlier_bool)]
 
-        second_roi_dropoutlier = np.where(outlier_bool, np.nan, second_roi)
-
+        winsor_physio = winsorize_mad(roi, threshold=5)
+        winsor_physio_interp = interpolate_data(winsor_physio)
 
         # 4-2. plot and save
 
         Fs = 1/TR #1/TR
         
-        physio_standardized = physio_dropoutlier - np.nanmean(physio_dropoutlier) # / np.nanstd(physio_tr)
-        fmri_standardized = second_roi_dropoutlier - np.nanmean(second_roi_dropoutlier)#/np.nanstd(second_roi_dropoutlier)
+        physio_standardized = physio_tr - np.nanmean(physio_tr)  / np.nanstd(physio_tr)
+        fmri_standardized = winsor_physio_interp - np.nanmean(winsor_physio_interp)/np.nanstd(winsor_physio_interp)
         total_length = len(fmri_standardized)
         fmri_standardized = fmri_standardized[6:]
         physio_standardized = physio_standardized[6:total_length] 
@@ -252,7 +264,7 @@ for i, physio_fname in enumerate(physio_flist):
 
         # 4-2.D: Compute and plot cross-correlation
         maxlags = int(Fs * 30)
-        acf = correlate(data1, data2, mode='full', method='auto')
+        acf = correlate(data1, data2, mode='full', method='auto') # matlab: xcorr
         # acf /= len(data1)  # Normalizing
         norm_factor = np.sqrt(np.sum(data1**2) * np.sum(data2**2))
         ccf = acf / norm_factor
@@ -290,10 +302,10 @@ for i, physio_fname in enumerate(physio_flist):
         lags_sliced = lags[len(lags)//2-maxlags:len(lags)//2+maxlags+1]
 
         # Find the maximum correlation value and corresponding time lag
-        max_acf_value = np.max(acf_sliced)
-        max_acf_index = np.argmax(acf_sliced)
+        absolute_values = [abs(number) for number in acf_sliced]  # Convert all numbers to their 
+        max_acf_value = np.max(absolute_values)
+        max_acf_index = np.argmax(absolute_values)
         max_lag_time = lags_sliced[max_acf_index]
-
 
         # Create a DataFrame to store these values _________________________
         roi_df.iloc[roi] = [sub, ses, run, roi, max_acf_value, max_lag_time]

@@ -1,13 +1,10 @@
 #!/usr/bin/env python
 # encoding: utf-8
-# TODO:
-# load /Volumes/spacetop_projects_cue/analysis/physio/physio01_SCL/sub-0015/ses-01/sub-0015_ses-01_run-02_runtype-cognitive_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_ttlindex-1_physio-scltimecourse.csv 
-# This is just ot get the metadata (cue, stim type)
-# from that convolve differently
 
-# %%----------------------------------------------------------------------
+
+# %%----------------------------------------------------------------------------
 #                               libraries
-# ----------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 import os, glob, re
 from os.path import join
 from pathlib import Path
@@ -20,7 +17,11 @@ from nilearn import glm
 import json
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
+from scipy.interpolate import interp1d
 
+# %%----------------------------------------------------------------------------
+#                               functions
+# ------------------------------------------------------------------------------
 def extract_meta(basename):
     # basename = os.path.basename(fname)
     sub_ind = int(re.search(r'sub-(\d+)', basename).group(1))
@@ -58,9 +59,47 @@ def filter_good_data(filenames, baddata_df):
     
     return good_data
 
+def winsorize_mad(data, threshold=3.5):
+    winsorized_data = data
+    median = np.median(data)
+    mad = np.median(np.abs(data - median))
+    threshold_value = threshold * mad
+    winsorized_data[winsorized_data < -threshold_value] = np.nan
+    winsorized_data[winsorized_data > threshold_value] = np.nan
+    # winsorized_data = np.clip(data, median - threshold_value, median + threshold_value)
+    return winsorized_data
+
+
+def interpolate_data(data):
+    time_points = np.arange(len(data))
+    valid = ~np.isnan(data)  # Mask of valid (non-NaN) data points
+    interp_func = interp1d(time_points[valid], data[valid], kind='linear', fill_value="extrapolate")
+    return interp_func(time_points)
 
 # prototype
 def merge_qc_scl(qc_fname, scl_flist):
+    """
+    Merges quality control (QC) data with skin conductance level (SCL) file information based on subject ID, session, run number, and task name.
+
+    This function reads a QC file and a list of SCL file names. It filters the QC data to include only entries marked for inclusion. It then extracts relevant information from both the QC data and SCL file names, such as subject ID, session, run number, and task name, and merges the two datasets on these dimensions.
+
+    Parameters:
+    - qc_fname (str): File path to the QC CSV file. The QC file should contain columns for subject ID   (`src_subject_id`), session ID (`session_id`), run number (`param_run_num`), task name (`param_task_name`), and signal quality (`Signal quality`).
+    - scl_flist (list of str): A list containing the file names of SCL files. These file names should include patterns that allow extraction of subject ID (`sub-<id>`), session ID (`ses-<id>`), run number (`run-<id>`), and task name (`runtype-<task_name>_`).
+
+    Returns:
+    - DataFrame: A pandas DataFrame resulting from the inner merge of the QC data (filtered by 'Signal quality' == 'include') and the SCL file information on subject ID, session, run number, and task name. This merged DataFrame contains information only for those records present in both datasets and marked for inclusion in the QC data.
+
+    Example:
+    >>> qc_fname = 'path/to/QC_EDA_new.csv'
+    >>> scl_flist = ['file_sub-01_ses-1_run-1_runtype-task1_.csv', 'file_sub-02_ses-2_run-2_runtype-task2_.csv']
+    >>> merged_df = merge_qc_scl(qc_fname, scl_flist)
+    >>> print(merged_df)
+
+    Note:
+    - The function assumes specific formatting for both the QC file columns and the SCL file name patterns.
+    - The merge is performed as an inner join, meaning only records that match across both datasets (and are marked 'include' in QC) will be included in the output DataFrame.
+    """
     # qc_fname = '/Users/h/Documents/projects_local/spacetop_biopac/data/QC_EDA_new.csv'
     qc = pd.read_csv(qc_fname)
     qc['sub'] = qc['src_subject_id']
@@ -68,7 +107,8 @@ def merge_qc_scl(qc_fname, scl_flist):
     qc['run'] = qc['param_run_num']
     qc['task'] = qc['param_task_name']
 
-    qc_sub = qc.loc[qc['Signal quality'] == 'include', ['sub', 'ses', 'run', 'task', 'Signal quality']]
+    qc_sub = qc.loc[qc['Signal quality'] == 'include', 
+                    ['sub', 'ses', 'run', 'task', 'Signal quality']]
     
     scl_file = pd.DataFrame()
     scl_file['filename'] = pd.DataFrame(scl_flist)
@@ -78,32 +118,52 @@ def merge_qc_scl(qc_fname, scl_flist):
     scl_file['task'] = scl_file['filename'].str.extract(r'runtype-(\w+)_').astype(str)
 
     # Merge temp_df with the qc DataFrame on 'sub', 'ses', 'run', and 'runtype'
-    # merged_df = pd.merge(temp_df, qc, on=['sub', 'ses', 'run', 'runtype'], how='inner')
     merged_df = pd.merge(scl_file, qc_sub, on=['sub', 'ses', 'run', 'task'], how='inner')
     
     return merged_df
-# %%----------------------------------------------------------------------
+
+def boxcar_function(x, start, end):
+    """
+    Boxcar function that returns 1 for x in the interval [start, end] and 0 otherwise.
+
+    Parameters:
+    - x: The input value.
+    - start: The start of the interval where the function returns 1.
+    - end: The end of the interval where the function returns 1.
+
+    Returns:
+    - int: 1 if start <= x <= end, otherwise 0.
+    """
+    if start <= x <= end:
+        return 1
+    else:
+        return 0
+    
+# %%----------------------------------------------------------------------------
 #                               parameters
-# ----------------------------------------------------------------------
-scl_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio/physio01_SCL' #'/Users/h/Documents/projects_local/sandbox/physioresults/physio01_SCL'                                            sub-0015_ses-01_run-05_runtype-pain_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt
-save_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio/glm/factorial'
-scl_dir = '/Volumes/spacetop_projects_cue/analysis/physio/physio01_SCL' #'/Users/h/Documents/projects_local/sandbox/physioresults/physio01_SCL'                                            sub-0015_ses-01_run-05_runtype-pain_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt
-save_dir = '/Volumes/spacetop_projects_cue/analysis/physio/glm/factorial'
+# ------------------------------------------------------------------------------
+scl_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio/physio01_SCL_25s'                                   
+save_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio/glm/factorial_boxcar'
+
+scl_dir = '/Volumes/spacetop_projects_cue/analysis/physio/physio01_SCL_25s' 
+save_dir = '/Volumes/spacetop_projects_cue/analysis/physio/glm/factorial_boxcar'                                      
+
+# # local
+# scl_dir = '/Users/h/Documents/projects_local/sandbox/physioresults/physio01_SCL'  
+# scl_dir = '/Users/h/Documents/projects_local/sandbox/physioresults/physio01_SCL' 
+# save_dir = '/Users/h/Desktop'      
+
+
 qc_fname = '/Users/h/Documents/projects_local/spacetop_biopac/data/QC_EDA_new.csv'
 qc = pd.read_csv(qc_fname)
 TR = 0.46
 task = 'pain'
-# %% ======= TODO: make code generic
-# glob files
-# extract info
-# add this info to a table
-# add file basename to a table
-# split this into pandas
-# /dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio/physio01_SCL/sub-0015/ses-01
-# scl_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio/physio01_SCL' #'/Users/h/Documents/projects_local/sandbox/physioresults/physio01_SCL'                                            sub-0015_ses-01_run-05_runtype-pain_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt
-scl_flist = sorted(glob.glob(join(scl_dir,'**', f'*{task}_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt'), recursive=True))
-                #    '/Users/h/Documents/projects_local/sandbox/physioresults/physio01_SCL/sub-0017/ses-03/sub-0017_ses-03_run-05_runtype-pain_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt'
-# %%======= NOTE: create empty dataframe
+
+# glob file list _______________________________________________________________
+scl_flist = sorted(glob.glob(join(scl_dir,'**', f'*{task}_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt'), 
+                             recursive=True))
+
+# create empty dataframe _______________________________________________________
 df_column = ['filename', 'sub', 'ses', 'run', 'runtype', 'intercept'] 
 cond_list = ['high_stim-high_cue', 'high_stim-low_cue',
              'med_stim-high_cue', 'med_stim-low_cue',
@@ -113,16 +173,12 @@ filtered_list = list(merged_df.filename)
 betadf = pd.DataFrame(index=range(len(filtered_list)), columns=df_column + cond_list)
 Path(join(save_dir)).mkdir(parents=True, exist_ok=True)
 
-
-# %% save betadf
-# betadf.to_csv('/Users/h/Documents/projects_local/spacetop_biopac/data/EDA_metadata.csv')
-# %%
+# %%----------------------------------------------------------------------------
+#                               glm estimation
+# ------------------------------------------------------------------------------
 for ind, scl_fpath in enumerate(sorted(filtered_list)):
     # ======= NOTE: load data
     # pdf_fname = '/Users/h/Documents/projects_local/sandbox/physioresults/physio01_SCL/sub-0017/ses-03/sub-0017_ses-03_run-05_runtype-pain_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt'
-    # sub-0015_ses-01_run-05_runtype-pain_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt
-    # 'sub-0015_ses-01_run-05_runtype-pain_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt'
-    # sub-0017_ses-03_run-05_runtype-pain_samplingrate-2000_onset.json
     # jsonfname = '/Users/h/Documents/projects_local/sandbox/physioresults/physio01_SCL/sub-0017/ses-03/sub-0017_ses-03_run-05_runtype-pain_samplingrate-2000_onset.json'
 
     basename = os.path.basename(scl_fpath)
@@ -135,24 +191,31 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
         js = json.load(json_file)
     betadf.at[ind, 'filename'] = basename
 
-    # ======= NOTE: fetch SCR curve
+
+    # remove outlier ___________________________________________________________
+    winsor_physio = winsorize_mad(pdf[0].values, threshold=5)
+    winsor_physio_interp = interpolate_data(winsor_physio)
+
+
+    # fetch SCR curve __________________________________________________________
     pspm_scr = pd.read_csv('/Users/h/Documents/projects_local/spacetop_biopac/scripts/p03_glm/pspm-scrf_td-25.txt', sep='\t')
     scr = pspm_scr.squeeze()
 
-    # ======= NOTE: construct event regressors
-    # TODO: load reference metadata
+
+    # extract metadata _________________________________________________________
     sub = f"sub-{sub_ind:04d}"
     ses = f"ses-{ses_ind:02d}"
     run = f"run-{run_ind:02d}"
     meta_fname = glob.glob(join(scl_dir, sub, ses, basename.split('epochend')[0] + "*scltimecourse.csv"))[0]
     metadf = pd.read_csv(meta_fname)
     metadf['condition'] = metadf['param_stimulus_type'].astype(str) + '-' + metadf['param_cue_type'].astype(str)
-    # cond_type
-    # onset_sec = np.array(js['event_stimuli']['start'])/samplingrate
+
+
+    # cond_type ________________________________________________________________
     total_runlength_sec = 400; data_points_per_second = 25
-    shift_time = 3
+    shift_time = 0
     array_length = total_runlength_sec * data_points_per_second
-    signal = np.zeros(len(pdf)) #np.zeros(total_runlength_sec * data_points_per_second)
+    signal = np.zeros(len(winsor_physio_interp)) #np.zeros(total_runlength_sec * data_points_per_second)
 
     stim_dict = {"high_stim-high_cue": 1,
                  "high_stim-low_cue": 1,
@@ -161,33 +224,51 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
                  "low_stim-high_cue": 1,
                  "low_stim-low_cue": 1
                 }
+    
+    # convolve onsets with boxcar and canonical SCR ____________________________
+    #       UPDATE 02/27/2024. 
+    #       We're creating boxcar function based on the stimulus duration
+    #       prior to this update, only the event onset was convolved with the SCR function. 
+    #       in other words, the convolved SCR was just a blip.
     total_regressor = []
+    boxcar = []
     for cond in cond_list:
-        signal  = np.zeros(len(pdf)) 
+        signal  = np.zeros(len(winsor_physio_interp)) 
         cond_index = metadf.loc[metadf['condition'] == cond].index.values
-        event_time = np.array(js['event_stimuli']['start'])[cond_index]/samplingrate
-        eventtime_shift = event_time + shift_time
-        event_indices = (eventtime_shift * data_points_per_second).astype(int)
-        signal[event_indices[:len(pdf)]] = stim_dict[cond]
+        event_start_time = np.array(js['event_stimuli']['start'])[cond_index]/samplingrate
+        event_stop_time = np.array(js['event_stimuli']['stop'])[cond_index]/samplingrate
+        for start, stop in zip(event_start_time, event_stop_time):
+            start_index = int((start + shift_time) * data_points_per_second)
+            stop_index = int((stop + shift_time) * data_points_per_second)
+            signal[start_index:stop_index] = stim_dict[cond]
+        # Convolve the signal with the scr
         convolved_signal = convolve(signal, scr, mode='full')[:len(signal)]
         total_regressor.append(convolved_signal)
+        boxcar.append(signal)
 
-    # ======= NOTE: convolve 
+    boxcar_summed = np.sum(np.stack(boxcar), axis=0)
+
+    # plot convolved signal ____________________________________________________
     Xmatrix = np.vstack(total_regressor)
-    y = pdf[0]
-    index = y.index
-    # for cond_ind in np.arange(len(cond_list)):
-    #     plt.plot(index, Xmatrix[cond_ind].T)
-    # plt.plot(index, y)
-    # plt.show()
-    # plt.savefig(join(save_dir, basename[:-4]+'.png'))
-    # plt.close()
-    #======= NOTE: linear modeling dataframe
-    X_r = np.array(Xmatrix).T
+    normalized_Xmatrix = (Xmatrix - Xmatrix.min()) / (Xmatrix.max() - Xmatrix.min())
+    y = winsor_physio_interp #pdf[0]
+    index = np.arange(len(y))#y.index
+    for cond_ind in np.arange(len(cond_list)):
+        plt.plot(index, normalized_Xmatrix[cond_ind].T)
+    plt.plot(index, y)
+    plt.plot(index, boxcar_summed)
+    plt.show()
+    plt.savefig(join(save_dir, basename[:-4]+'.png'))
+    plt.close()
+
+    # linear regression ________________________________________________________
+    X_r = np.array(normalized_Xmatrix).T
     Y_r = np.array(y).reshape(-1,1)
     reg = linear_model.LinearRegression().fit(X_r, Y_r)
     reg.score(X_r, Y_r)
-    print(f"coefficient: {reg.coef_[0][0]}, {reg.coef_[0][1]}, {reg.coef_[0][2]}, {reg.coef_[0][3]}, {reg.coef_[0][4]}, {reg.coef_[0][5]}, intercept: {reg.intercept_[0]}")
+    print(f"coefficient: {reg.coef_[0][0]}, {reg.coef_[0][1]}, {reg.coef_[0][2]}, \
+          {reg.coef_[0][3]}, {reg.coef_[0][4]}, {reg.coef_[0][5]}, \
+          intercept: {reg.intercept_[0]}")
 
     betadf.at[ind, cond_list[0]] = reg.coef_[0][0]
     betadf.at[ind, cond_list[1]] = reg.coef_[0][1]
@@ -198,31 +279,57 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
 
     betadf.at[ind, 'intercept'] = reg.intercept_[0]
 
+    # visualizing model fit results ____________________________________________
+    # convolve onset boxcars, multiply it with model fitted coefficients
+    total_regressor = []
+    boxcar = []
+    for cond in cond_list:
+        signal  = np.zeros(len(winsor_physio_interp)) 
+        cond_index = metadf.loc[metadf['condition'] == cond].index.values
+        event_start_time = np.array(js['event_stimuli']['start'])[cond_index]/samplingrate
+        event_stop_time = np.array(js['event_stimuli']['stop'])[cond_index]/samplingrate
+        for start, stop in zip(event_start_time, event_stop_time):
+            start_index = int((start + shift_time) * data_points_per_second)
+            stop_index = int((stop + shift_time) * data_points_per_second)
+            signal[start_index:stop_index] = stim_dict[cond]
+        # Convolve the signal with the scr
+        convolved_signal = convolve(signal, scr, mode='full')[:len(signal)]
+        total_regressor.append(convolved_signal)
+        boxcar.append(signal)
 
-# TEST SANDBOX 09/23/2023
+    scr_normalized = scr/np.sum(scr)
     predicted_total_signal = []
     for ind, cond in enumerate(cond_list):
         print(ind)
-        predicted_signal  = np.zeros(len(pdf)) 
+        predicted_signal  = np.zeros(len(winsor_physio_interp)) 
         cond_index = metadf.loc[metadf['condition'] == cond].index.values
-        event_time = np.array(js['event_stimuli']['start'])[cond_index]/samplingrate
-        eventtime_shift = event_time + shift_time
-        event_indices = (eventtime_shift * data_points_per_second).astype(int)
-        predicted_signal[event_indices[:len(pdf)]] = stim_dict[cond] * reg.coef_[0][ind]
-        predicted_convolved_signal = convolve(predicted_signal, scr , mode='full')[:len(predicted_signal)]
+        event_start_time = np.array(js['event_stimuli']['start'])[cond_index]/samplingrate
+        event_stop_time = np.array(js['event_stimuli']['stop'])[cond_index]/samplingrate
+
+        for start, stop in zip(event_start_time, event_stop_time):
+            start_index = int((start + shift_time) * data_points_per_second)
+            stop_index = int((stop + shift_time) * data_points_per_second)
+            predicted_signal[start_index:stop_index] = stim_dict[cond] * reg.coef_[0][ind]
+
+        predicted_convolved_signal = convolve(predicted_signal, scr_normalized, 
+                                              mode='full')[:len(predicted_signal)]
         predicted_total_signal.append(predicted_convolved_signal)
-    # ======= NOTE: convolve 
+
+    # plot convolved signal ____________________________________________________
+    boxcar_summed = np.sum(np.stack(boxcar), axis=0) * np.mean(reg.coef_[0])
+
     predictedXmatrix = np.vstack(predicted_total_signal)
-    y = pdf[0]
-    index = y.index
+    y = winsor_physio_interp
+    index = np.arange(len(y)) 
     for cond_ind in np.arange(len(cond_list)):
         plt.plot(index, predictedXmatrix[cond_ind].T)
     plt.plot(index, y)
+    plt.plot(index, boxcar_summed)
     plt.title(f"{sub} {ses} {run}")
-    # plt.show()
     plt.savefig(join(save_dir, basename[:-4]+'_modelfitted.png'))
     plt.close()
-# ======= NOTE:  extract metadata and save dataframe
+
+# extract metadata and save dataframe __________________________________________
 betadf['sub']= betadf['filename'].str.extract(r'(sub-\d+)')
 betadf['ses'] = betadf['filename'].str.extract(r'(ses-\d+)')
 betadf['run'] = betadf['filename'].str.extract(r'(run-\d+)')
@@ -230,11 +337,17 @@ betadf['runtype'] = betadf['filename'].str.extract(r'runtype-(\w+)_')
 
 betadf.to_csv(join(save_dir, f'glm-factorial_task-{task}_scr.tsv'), sep='\t')
 # TODO: save metadata in json
-{"shift":3, 
+json_fname = join(save_dir, f'glm-factorial_task-{task}_scr.json')
+
+json_content = {"shift":3, 
  "samplingrate_of_onsettime": 2000, 
  "samplingrate_of_SCL": 25, 
  "TR": 0.46, 
- "source_code": "scripts/p03_glm/glm.py",
- "regressor": "stimulus condition convolve"}
+ "source_code": "scripts/p03_glm/glm_factorial_scr.py",
+ "regressor": "stimulus condition convolve w/ 1) canonical scr \
+ 2) boxcar for onset duration"}
 
-# %%
+with open(json_fname, 'w') as json_file:
+    json.dump(json_content, json_file, indent=4)
+
+
