@@ -448,7 +448,7 @@ def get_args():
                         help="end of epoch (e.g. 20 indicates 20 seconds after onset of event of interest)")
     parser.add_argument("--ttl-index", type=int,
                         help="index of which TTL to use")
-    parser.add_argument("--baselinecorrect", type=bool, 
+    parser.add_argument("--baselinecorrect", type=str, 
                         help="indicate whether you want to baseline correct our not. Our methods uses how ever many timepoints you extract (SCL_epochstart) prior to event. We calculate the average and subtract that from the signal")
     parser.add_argument('--exclude-sub', nargs='+',
                         type=int, help="string of integers, subjects to be removed from code", required=False)
