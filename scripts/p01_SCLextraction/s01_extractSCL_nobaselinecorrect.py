@@ -64,7 +64,7 @@ def main():
     SCL_epoch_start = args.scl_epochstart
     SCL_epoch_end = args.scl_epochend
     ttl_index = args.ttl_index
-    baselinecorrect = args.baselinecorrect
+    baselinecorrect = str_to_bool(args.baselinecorrect)
     remove_subject_int = args.exclude_sub
 
 # %% -------------------------------------------------------------------
@@ -330,7 +330,11 @@ def main():
             resamp = nk.signal_resample(
                 physio_df['physio_eda'].to_numpy(),  method='interpolation', sampling_rate=source_samplingrate, desired_sampling_rate=dest_samplingrate)
             #physio_df.to_tsv(join(output_savedir, 'physio01_SCL', sub, ses, edabl_fname + '.tsv'), sep='\t')
-            np.savetxt(join(output_savedir, 'physio01_SCL', sub, ses, eda_fname + ".txt"),resamp, delimiter=",")
+            resamp_center = resamp - np.nanmean(resamp)
+            #scr_signal = nk.signal_sanitize(resamp_center)
+            scr_filters = nk.signal_filter(resamp_center,sampling_rate=dest_samplingrate, highcut=1, method="butterworth", order=2)
+            scr_detrend = nk.signal_detrend(scr_filters, method="polynomial", order=3)
+            np.savetxt(join(output_savedir, 'physio01_SCL', sub, ses, eda_fname + ".txt"),scr_detrend, delimiter=",")
             tonic_length, scl_raw, scl_epoch = utils.preprocess.extract_SCL_custom(
                 df=physio_df,
                 eda_col='physio_eda', 
@@ -408,7 +412,8 @@ def main():
 # %% -------------------------------------------------------------------
 #                        argparse parameters
 # ----------------------------------------------------------------------
-
+def str_to_bool(s):
+    return s.lower() in ['true', '1', 't', 'y', 'yes']
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input-physiodir",
@@ -449,7 +454,7 @@ def get_args():
                         help="end of epoch (e.g. 20 indicates 20 seconds after onset of event of interest)")
     parser.add_argument("--ttl-index", type=int,
                         help="index of which TTL to use")
-    parser.add_argument("--baselinecorrect", type=bool, 
+    parser.add_argument("--baselinecorrect", type=str, 
                         help="indicate whether you want to baseline correct our not. Our methods uses how ever many timepoints you extract (SCL_epochstart) prior to event. We calculate the average and subtract that from the signal")
     parser.add_argument('--exclude-sub', nargs='+',
                         type=int, help="string of integers, subjects to be removed from code", required=False)

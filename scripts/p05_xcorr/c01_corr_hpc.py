@@ -202,12 +202,6 @@ for i, physio_fname in enumerate(physio_flist):
         # remove outlier
         roi = time_series.T[roi]
 
-        # outlier_bool = nk.find_outliers(roi, exclude=1, side='both', method='sd') # TODO: isabel winsorize 5 MAD (mean absolute deviation)
-                                        
-        # # column_values = roi
-        # # outlier_data = [column_values[i] if outlier else None for i, outlier in enumerate(outlier_bool)]
-
-        # roi_dropoutlier = np.where(outlier_bool, np.nan, roi)
 
         fmri_outlier = winsorize_mad(roi, threshold=7)
         physio_outlier = winsorize_mad(physio_detrend, threshold=7)
