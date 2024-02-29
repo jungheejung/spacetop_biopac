@@ -109,6 +109,9 @@ for i, physio_fname in enumerate(physio_flist):
     resamp = nk.signal_resample(
                 df['physio_eda'].to_numpy(),  method='interpolation', sampling_rate=source_samplingrate, desired_sampling_rate=dest_samplingrate)
 
+    # filter
+    # butterworth
+    # detrend
     # 3-2. load brain data ________________________________________________
     print(f"step 3-2: load brain data _____________")
     fmri_fname = join(fmriprep_dir,sub, ses, 'func', f"{sub}_{ses}_task-social_acq-mb8_run-{int(matches.group(3))}_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz" )
@@ -181,7 +184,16 @@ for i, physio_fname in enumerate(physio_flist):
     # resamp physio data to TR sampling rate
     physio_tr = nk.signal_resample(
                 df['physio_eda'].to_numpy(),  method='interpolation', sampling_rate=source_samplingrate, desired_sampling_rate=fmri_samplingrate)
-    
+    physio_center = physio_tr - np.nanmean(physio_tr)
+    physio_filter = nk.signal_filter(physio_center, 
+                                     sampling_rate=dest_samplingrate,
+                                     highcut=1,
+                                     method="butterworth",
+                                     order=2)
+    physio_detrend = nk.signal_detrend(physio_filter, 
+                                       method="polynomial", 
+                                       order=0)
+
     # 4. loop through ROI and calculate xcorr ________________________________________________
     # 4-1. create dataframe to store ROI data
     print(f"step 4: calculate xcorr _____________")
@@ -197,15 +209,16 @@ for i, physio_fname in enumerate(physio_flist):
 
         # roi_dropoutlier = np.where(outlier_bool, np.nan, roi)
 
-        winsor_physio = winsorize_mad(roi, threshold=5)
-        winsor_physio_interp = interpolate_data(winsor_physio)
+        fmri_outlier = winsorize_mad(roi, threshold=7)
+        physio_outlier = winsorize_mad(physio_detrend, threshold=7)
+        # fmri_outlier = interpolate_data(winsor_physio)
 
         # 4-2. plot and save
 
         Fs = 1/TR #1/TR
         
-        physio_standardized = physio_tr - np.nanmean(physio_tr)  / np.nanstd(physio_tr)
-        fmri_standardized = winsor_physio_interp - np.nanmean(winsor_physio_interp)/np.nanstd(winsor_physio_interp)
+        physio_standardized = physio_outlier - np.nanmean(physio_outlier)  / np.nanstd(physio_outlier)
+        fmri_standardized = fmri_outlier - np.nanmean(fmri_outlier)/np.nanstd(fmri_outlier)
         total_length = len(fmri_standardized)
         fmri_standardized = fmri_standardized[6:]
         physio_standardized = physio_standardized[6:total_length] 
