@@ -153,11 +153,11 @@ def boxcar_function(x, start, end):
 # %%----------------------------------------------------------------------------
 #                               parameters
 # ------------------------------------------------------------------------------
-scl_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio/physio01_SCL_25s'                                   
-save_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio/glm/factorial_boxcar'
+scl_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio_nobaseline/physio01_SCL'                                   
+save_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio_nobaseline/glm/factorial_boxcar'
 
-scl_dir = '/Volumes/spacetop_projects_cue/analysis/physio/physio01_SCL_25s' 
-save_dir = '/Volumes/spacetop_projects_cue/analysis/physio/glm/factorial_boxcar'                                      
+scl_dir = '/Volumes/spacetop_projects_cue/analysis/physio_nobaseline/physio01_SCL' 
+save_dir = '/Volumes/spacetop_projects_cue/analysis/physio_nobaseline/glm/factorial_boxcar'                                      
 
 # # local
 # scl_dir = '/Users/h/Documents/projects_local/sandbox/physioresults/physio01_SCL'  
@@ -171,7 +171,7 @@ TR = 0.46
 task = 'pain'
 
 # glob file list _______________________________________________________________
-scl_flist = sorted(glob.glob(join(scl_dir,'**', f'*{task}_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt'), 
+scl_flist = sorted(glob.glob(join(scl_dir,'**', f'*{task}_epochstart--3_epochend-20_baselinecorrect-False_samplingrate-25_physio-eda.txt'), 
                              recursive=True))
 
 # create empty dataframe _______________________________________________________
@@ -188,9 +188,6 @@ Path(join(save_dir)).mkdir(parents=True, exist_ok=True)
 #                               glm estimation
 # ------------------------------------------------------------------------------
 for ind, scl_fpath in enumerate(sorted(filtered_list)):
-    # ======= NOTE: load data
-    # pdf_fname = '/Users/h/Documents/projects_local/sandbox/physioresults/physio01_SCL/sub-0017/ses-03/sub-0017_ses-03_run-05_runtype-pain_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.txt'
-    # jsonfname = '/Users/h/Documents/projects_local/sandbox/physioresults/physio01_SCL/sub-0017/ses-03/sub-0017_ses-03_run-05_runtype-pain_samplingrate-2000_onset.json'
 
     basename = os.path.basename(scl_fpath)
     dirname = os.path.dirname(scl_fpath)
