@@ -63,11 +63,11 @@ sub = sub_list[slurm_id]#f'sub-{sub_list[slurm_id]:04d}'
 save_dir = join(save_top_dir, sub)
 Path(save_dir).mkdir(parents=True, exist_ok=True)
 # physio_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop_data/physio/physio03_bids/task-cue'
-# physio_dir = '/Users/h/Documents/projects_local/sandbox/physiodata'
+physio_dir = '/Users/h/Documents/projects_local/sandbox/physiodata'
 # fmriprep_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop_data/derivatives/fmriprep/results/fmriprep/'
-# fmriprep_dir = '/Users/h/Documents/projects_local/sandbox/fmriprep_bold'
-# save_dir = '/Users/h/Documents/projects_local/sandbox'
-# runtyp = 'pain'
+fmriprep_dir = '/Users/h/Documents/projects_local/sandbox/fmriprep_bold'
+save_dir = '/Users/h/Documents/projects_local/sandbox'
+runtype = 'pain'
 def winsorize_mad(data, threshold=3.5):
     winsorized_data = data
     median = np.median(data)
@@ -91,7 +91,7 @@ def interpolate_data(data):
 # * detrend
 # * low pass filter of 1
 
-physio_flist = glob.glob(join(physio_dir, '**', '{sub}_ses-*_run-*_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.tsv'))
+physio_flist = glob.glob(join(physio_dir, '**', '{sub}_ses-*_run-*_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.tsv'), recursive=True)
 
 # %%
 for i, physio_fname in enumerate(physio_flist):

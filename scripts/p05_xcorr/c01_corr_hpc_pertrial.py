@@ -24,6 +24,8 @@ from scipy.signal.windows import hann
 import matplotlib.gridspec as gridspec
 import seaborn as sns
 from scipy.interpolate import interp1d
+from feature_engine.outliers import Winsorizer
+
 # %%
 __author__ = "Heejung Jung"
 __copyright__ = "Spatial Topology Project"
@@ -63,21 +65,25 @@ sub = sub_list[slurm_id]#f'sub-{sub_list[slurm_id]:04d}'
 save_dir = join(save_top_dir, sub)
 Path(save_dir).mkdir(parents=True, exist_ok=True)
 # physio_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop_data/physio/physio03_bids/task-cue'
-# physio_dir = '/Users/h/Documents/projects_local/sandbox/physiodata'
+physio_dir = '/Users/h/Documents/projects_local/sandbox/physiodata'
 # fmriprep_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop_data/derivatives/fmriprep/results/fmriprep/'
-# fmriprep_dir = '/Users/h/Documents/projects_local/sandbox/fmriprep_bold'
-# save_dir = '/Users/h/Documents/projects_local/sandbox'
-# runtyp = 'pain'
-def winsorize_mad(data, threshold=3.5):
-    winsorized_data = data
-    median = np.median(data)
-    mad = np.median(np.abs(data - median))
-    threshold_value = threshold * mad
-    winsorized_data[winsorized_data < -threshold_value] = np.nan
-    winsorized_data[winsorized_data > threshold_value] = np.nan
-    # winsorized_data = np.clip(data, median - threshold_value, median + threshold_value)
-    return winsorized_data
+fmriprep_dir = '/Users/h/Documents/projects_local/sandbox/fmriprep_bold'
+save_dir = '/Users/h/Documents/projects_local/sandbox'
+runtype = 'pain'
+# def winsorize_mad(data, threshold=3.5):
+#     winsorized_data = data
+#     median = np.median(data)
+#     mad = np.median(np.abs(data - median))
+#     threshold_value = threshold * mad
+#     winsorized_data[winsorized_data < -threshold_value] = np.nan
+#     winsorized_data[winsorized_data > threshold_value] = np.nan
+#     # winsorized_data = np.clip(data, median - threshold_value, median + threshold_value)
+#     return winsorized_data
 
+def winsorize_mad(data, threshold=3.5):
+    wz = Winsorizer(capping_method='mad', tail='both', fold=threshold)
+    winsorized_data = wz.fit_transform(data)
+    return winsorized_data
 
 def interpolate_data(data):
     time_points = np.arange(len(data))
@@ -91,13 +97,14 @@ def interpolate_data(data):
 # * detrend
 # * low pass filter of 1
 
-physio_flist = glob.glob(join(physio_dir, '**', '{sub}_ses-*_run-*_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.tsv'))
+physio_flist = glob.glob(join(physio_dir, '**', '{sub}_ses-*_run-*_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.tsv'), recursive=True)
 
 # %%
 for i, physio_fname in enumerate(physio_flist):
 
     # 2. Extract bids info
-    matches = re.search(r"sub-(\d+)/ses-(\d+)/.*_run-(\d+)-", physio_fname)
+    matches = re.search(r"sub-(\d+)_ses-(\d+)_run-(\d+)_", physio_fname)
+    # matches = re.search(r"sub-(\d+)_ses-(\d+)_.*_run-(\d+)-", os.path.basename(physio_fname))
     if matches:
         sub = f"sub-{matches.group(1)}"
         ses = f"ses-{matches.group(2)}"
@@ -179,7 +186,7 @@ for i, physio_fname in enumerate(physio_flist):
     subset_confounds = pd.concat([confounds[filter_col], dummy], axis=1)
 
     print("grabbed all the confounds and fmri data")
-    print(subset_confounds.head())
+    # print(subset_confounds.head())
     time_series = masker.fit_transform(fmri_fname, confounds=subset_confounds.fillna(subset_confounds.median()))
 
     # 3-4. resample physio to fmri TR
@@ -188,40 +195,40 @@ for i, physio_fname in enumerate(physio_flist):
     # resamp physio data to TR sampling rate
     physio_tr = nk.signal_resample(
                 df['physio_eda'].to_numpy(),  method='interpolation', sampling_rate=source_samplingrate, desired_sampling_rate=fmri_samplingrate)
-    physio_center = physio_tr - np.nanmean(physio_tr)
-    physio_filter = nk.signal_filter(physio_center, 
-                                     sampling_rate=dest_samplingrate,
-                                     highcut=1,
-                                     method="butterworth",
-                                     order=2)
-    physio_detrend = nk.signal_detrend(physio_filter, 
-                                       method="polynomial", 
-                                       order=0)
+    # physio_center = physio_tr - np.nanmean(physio_tr)
+    # physio_filter = nk.signal_filter(physio_center, 
+    #                                  sampling_rate=dest_samplingrate,
+    #                                  highcut=1,
+    #                                  method="butterworth",
+    #                                  order=2)
+    # physio_detrend = nk.signal_detrend(physio_filter, 
+    #                                    method="polynomial", 
+    #                                    order=0)
 
     # 4. loop through ROI and calculate xcorr ________________________________________________
     # 4-1. create dataframe to store ROI data
     print(f"step 4: calculate xcorr _____________")
     roi_df = pd.DataFrame(index=range(time_series.shape[1]), columns=['sub', 'ses', 'run', 'roi', 'Maximum Correlation Value', 'Time Lag (s)'])
-    for roi in range(time_series.shape[1]):
+    for roi_ind in range(time_series.shape[1]):
         # remove outlier
-        roi = time_series.T[roi]
+        roi = time_series.T[roi_ind]
 
 
-        fmri_outlier = winsorize_mad(roi, threshold=7)
-        physio_outlier = winsorize_mad(physio_detrend, threshold=7)
+        fmri_outlier = winsorize_mad(roi.reshape(-1,1), threshold=7)
+        physio_outlier = winsorize_mad(physio_tr.reshape(-1,1), threshold=7)
         # fmri_outlier = interpolate_data(winsor_physio)
 
         # 4-2. plot and save
 
         Fs = 1/TR #1/TR
         
-        physio_standardized = physio_outlier - np.nanmean(physio_outlier)  / np.nanstd(physio_outlier)
-        fmri_standardized = fmri_outlier - np.nanmean(fmri_outlier)/np.nanstd(fmri_outlier)
+        physio_standardized = (physio_outlier - np.nanmean(physio_outlier) )/ np.nanstd(physio_outlier)
+        fmri_standardized = (fmri_outlier - np.nanmean(fmri_outlier))/np.nanstd(fmri_outlier)
         total_length = len(fmri_standardized)
-        fmri_standardized = fmri_standardized[6:]
-        physio_standardized = physio_standardized[6:total_length] 
-        tvec = np.arange(0, len(physio_standardized) / Fs, 1/Fs)
-        print(f"tvec: {len(tvec)}, physio:{physio_standardized.shape}, fmri:{fmri_standardized.shape}")
+        fmri_shave = fmri_standardized[6:]
+        physio_shave= physio_standardized[6:total_length] 
+        tvec = np.arange(0, len(physio_shave) / Fs, 1/Fs)
+        print(f"tvec: {len(tvec)}, physio:{physio_shave.shape}, fmri:{fmri_shave.shape}")
         from scipy.interpolate import interp1d
         # mean_data1 = np.nanmean(physio_standardized)
         # mean_data2 = np.nanmean(fmri_standardized)
@@ -236,8 +243,11 @@ for i, physio_fname in enumerate(physio_flist):
             return interp_func(time_points)
 
         # Interpolate missing values
-        data1 = interpolate_data(physio_standardized)
-        data2 = interpolate_data(fmri_standardized)
+        # data1 = interpolate_data(physio_standardized)
+        # data2 = interpolate_data(fmri_standardized)
+
+        data1 = physio_shave.squeeze()
+        data2 = fmri_shave.squeeze()
         # 4-2. plot parameters
         fig = plt.figure(figsize=(16, 8))
         gs = gridspec.GridSpec(2, 4, figure=fig)
@@ -309,9 +319,9 @@ for i, physio_fname in enumerate(physio_flist):
         ax5.set_title('Coherence Spectrum')
         plt.tight_layout()
         sns.despine()
-        # plt.show()
-        fig.savefig(join(save_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_roi-{roi}_xcorr-fmri-physio.png"))
-        plt.close(fig)
+        plt.show()
+        # fig.savefig(join(save_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_roi-{roi}_xcorr-fmri-physio.png"))
+        # plt.close(fig)
         # calculate xcorr and save in dataframe _________________________
         # Slicing acf and lags for the plot range
         acf_sliced = ccf[len(ccf)//2-maxlags:len(ccf)//2+maxlags+1]
