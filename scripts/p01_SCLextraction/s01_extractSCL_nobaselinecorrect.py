@@ -340,7 +340,7 @@ def main():
             new_df = pd.DataFrame()
             new_df['physio_eda'] = scr_filters
             # physio_df['physio_eda'] = scr_filters
-            new_df.to_tsv(join(output_savedir, 'physio01_SCL', sub, ses, eda_fname + '.tsv'), sep='\t')
+            new_df.to_csv(join(output_savedir, 'physio01_SCL', sub, ses, eda_fname + '.tsv'), sep='\t')
             np.savetxt(join(output_savedir, 'physio01_SCL', sub, ses, eda_fname + ".txt"),scr_filters, delimiter=",")
             tonic_length, scl_raw, scl_epoch = utils.preprocess.extract_SCL_custom(
                 df=physio_df,
