@@ -31,7 +31,7 @@ print(utils.checkfiles.glob_physio_bids)
 print(utils.initialize.sublist)
 __author__ = "Heejung Jung, Yaroslav Halchenko, Isabel Neumann"
 __copyright__ = "Spatial Topology Project"
-__credits__ = ["Yaroslav Halchenko"] # people who reported bug fixes, made suggestions, etc. but did not actually write the code.
+__credits__ = ["Tor D. Wager, Matt van der Meer"] # people who reported bug fixes, made suggestions, etc. but did not actually write the code.
 __license__ = "MIT"
 __version__ = "0.1"
 __maintainer__ = "Heejung Jung"
@@ -332,7 +332,10 @@ def main():
             #physio_df.to_tsv(join(output_savedir, 'physio01_SCL', sub, ses, edabl_fname + '.tsv'), sep='\t')
             resamp_center = resamp - np.nanmean(resamp)
             #scr_signal = nk.signal_sanitize(resamp_center)
-            scr_filters = nk.signal_filter(resamp_center,sampling_rate=dest_samplingrate, highcut=1, method="butterworth", order=2)
+            scr_filters = nk.signal_filter(resamp_center,
+                                           sampling_rate=dest_samplingrate, 
+                                           highcut=1, lowcut=.05,
+                                           method="butterworth", order=2)
             scr_detrend = nk.signal_detrend(scr_filters, method="polynomial", order=3)
             np.savetxt(join(output_savedir, 'physio01_SCL', sub, ses, eda_fname + ".txt"),scr_detrend, delimiter=",")
             tonic_length, scl_raw, scl_epoch = utils.preprocess.extract_SCL_custom(
