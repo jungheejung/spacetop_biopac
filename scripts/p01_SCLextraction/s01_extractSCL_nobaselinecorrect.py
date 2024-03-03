@@ -337,8 +337,10 @@ def main():
                                            highcut=2, lowcut=.01,
                                            method="butterworth", order=2)
             # scr_detrend = nk.signal_detrend(scr_filters, method="polynomial", order=3)
-            physio_df['physio_eda'] = scr_filters
-            physio_df.to_tsv(join(output_savedir, 'physio01_SCL', sub, ses, eda_fname + '.tsv'), sep='\t')
+            new_df = pd.DataFrame()
+            new_df['physio_eda'] = scr_filters
+            # physio_df['physio_eda'] = scr_filters
+            new_df.to_tsv(join(output_savedir, 'physio01_SCL', sub, ses, eda_fname + '.tsv'), sep='\t')
             np.savetxt(join(output_savedir, 'physio01_SCL', sub, ses, eda_fname + ".txt"),scr_filters, delimiter=",")
             tonic_length, scl_raw, scl_epoch = utils.preprocess.extract_SCL_custom(
                 df=physio_df,
