@@ -334,7 +334,7 @@ def main():
             #scr_signal = nk.signal_sanitize(resamp_center)
             scr_filters = nk.signal_filter(resamp_center,
                                            sampling_rate=dest_samplingrate, 
-                                           highcut=1, lowcut=.05,
+                                           highcut=2, lowcut=.01,
                                            method="butterworth", order=2)
             scr_detrend = nk.signal_detrend(scr_filters, method="polynomial", order=3)
             np.savetxt(join(output_savedir, 'physio01_SCL', sub, ses, eda_fname + ".txt"),scr_detrend, delimiter=",")
