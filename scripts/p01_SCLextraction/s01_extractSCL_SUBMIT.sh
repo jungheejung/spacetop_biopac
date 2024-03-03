@@ -16,7 +16,7 @@ PROJECT_DIR="/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue"
 PHYSIO_DIR="/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop_data/physio/physio03_bids/task-cue"
 BEH_DIR="${PROJECT_DIR}/data/beh/beh02_preproc"
 OUTPUT_LOGDIR="${PROJECT_DIR}/scripts/logcenter"
-OUTPUT_SAVEDIR="${PROJECT_DIR}/analysis/physio_nobaseline"
+OUTPUT_SAVEDIR="${PROJECT_DIR}/analysis/physio/nobaseline"
 METADATA="${PROJECT_DIR}/data/spacetop_task-social_run-metadata.csv"
 CHANNELJSON="/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop_data/scripts/spacetop_prep/physio/p01_channel.json"
 SLURM_ID=${SLURM_ARRAY_TASK_ID}
@@ -29,7 +29,7 @@ TTL_INDEX=1
 SCL_EPOCH_START=-3
 SCL_EPOCH_END=20
 
-python ${PWD}/p01_grouplevel_01SCL.py \
+python ${PWD}/s01_extractSCL_nobaselinecorrect.py \
 --input-physiodir ${PHYSIO_DIR} \
 --input-behdir ${BEH_DIR} \
 --output-logdir ${OUTPUT_LOGDIR} \
@@ -48,5 +48,5 @@ python ${PWD}/p01_grouplevel_01SCL.py \
 --scl-epochstart ${SCL_EPOCH_START} \
 --scl-epochend ${SCL_EPOCH_END} \
 --ttl-index ${TTL_INDEX} \
---baselinecorrect False \
+--baselinecorrect "False" \
 --exclude-sub 1 2 3 4 5 6
