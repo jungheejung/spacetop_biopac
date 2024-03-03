@@ -34,7 +34,7 @@ print(utils.checkfiles.glob_physio_bids)
 __author__ = "Heejung Jung, Yaroslav Halchenko, Isabel Neumann"
 __copyright__ = "Spatial Topology Project"
 # people who reported bug fixes, made suggestions, etc. but did not actually write the code.
-__credits__ = ["Yaroslav Halchenko"]
+__credits__ = ["Tor D. Wager, Matt van der Meer"]
 __license__ = "MIT"
 __version__ = "0.1"
 __maintainer__ = "Heejung Jung"
@@ -85,10 +85,7 @@ def main():
     beh_df = pd.read_csv(beh_fname)
     physio_df = pd.read_csv(physio_fpath, sep='\t')
     runmeta = pd.read_csv(meta_fname)
-    samplingrate = 2000
-    ttl_index = 2
-    SCL_epoch_end = 20
-    SCL_epoch_start = -1
+
     physio_dir =  '/Users/h/Documents/projects_local/spacetop-prep/spacetop_prep/physio/demo/data' 
     beh_dir = '/Users/h/Documents/projects_local/spacetop-prep/spacetop_prep/physio/demo/data' 
     log_dir = '/Users/h/Documents/projects_local/sandbox'
