@@ -288,10 +288,10 @@ for i, physio_fname in enumerate(physio_flist):
 
 
         for i, (start, stop ) in enumerate(zip(event_stimuli_start, event_stimuli_stop)):
-            start_index = max(0, int(start) - padding_samples)
-            stop_index = min(len(data1) - 1, np.round(stop)  + padding_samples)
-            physio_segment = data1.loc[int(start_index):int(stop_index), 'x0']
-            fmri_segment = data2.loc[int(start_index):int(stop_index), 'x0']
+            # start_index = max(0, int(start) - padding_samples)
+            # stop_index = min(len(data1) - 1, np.round(stop)  + padding_samples)
+            physio_segment = data1.loc[int(start):int(stop), 'x0']
+            fmri_segment = data2.loc[int(start):int(stop), 'x0']
             physio_stim.append(physio_segment)
             fmri_stim.append(fmri_segment)
  
