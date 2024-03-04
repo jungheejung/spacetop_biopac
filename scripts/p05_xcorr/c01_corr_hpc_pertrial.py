@@ -213,7 +213,7 @@ for i, physio_fname in enumerate(physio_flist):
         fmri_outlier = winsorize_mad(roi.reshape(-1,1), threshold=7)
         physio_outlier = winsorize_mad(physio_resamp.reshape(-1,1), threshold=7)
         # fmri_outlier = interpolate_data(winsor_physio)
-
+        print(f"fmri outlier shape {fmri_outlier.shape}")
         # 4-2. plot and save
 
         Fs = 1/TR #1/TR
