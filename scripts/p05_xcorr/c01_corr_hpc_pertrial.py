@@ -319,7 +319,7 @@ for i, physio_fname in enumerate(physio_flist):
             ax1.set_title('raw signals')
 
             # 4-2.B:  Compute and plot PSD ______________________________
-            ws = len(physio_stim[i]) // 2
+            ws = 20 #len(physio_stim[i]) // 2
             window = hann(ws)
             noverlap = ws // 2
             nfft = len(tvec)
@@ -342,7 +342,7 @@ for i, physio_fname in enumerate(physio_flist):
             ax3.set_title('cross-spectrum')
 
             # 4-2.D: Compute and plot cross-correlation
-            maxlags = len(physio_stim[i]) // 2#int(Fs * 30)
+            maxlags = 20#len(physio_stim[i]) // 2#int(Fs * 30)
             acf = correlate(physio_stim[i], fmri_stim[i], mode='full', method='auto') # matlab: xcorr
             # acf /= len(data1)  # Normalizing
             norm_factor = np.sqrt(np.sum(physio_stim[i]**2) * np.sum(fmri_stim[i]**2))
@@ -373,8 +373,8 @@ for i, physio_fname in enumerate(physio_flist):
             plt.tight_layout()
             sns.despine()
             plt.show()
-            # fig.savefig(join(save_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_roi-{roi}_xcorr-fmri-physio.png"))
-            # plt.close(fig)
+            fig.savefig(join(save_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_roi-{roi_ind}_trial-{i}_xcorr-fmri-physio.png"))
+            plt.close(fig)
             # calculate xcorr and save in dataframe _________________________
             # Slicing acf and lags for the plot range
             acf_sliced = ccf[len(ccf)//2-maxlags:len(ccf)//2+maxlags+1]
@@ -400,6 +400,6 @@ for i, physio_fname in enumerate(physio_flist):
             })
     roi_df = pd.DataFrame(roi_data)
     save_fname = join(save_top_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_xcorr-fmri-physio.tsv")
-    roi_df.to_csv(save_fname,sep='\t')
+    roi_df.to_csv(save_fname,sep='\t',index=False)
 plt.close('all')
 print("complete!")
