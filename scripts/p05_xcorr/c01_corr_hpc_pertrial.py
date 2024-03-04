@@ -299,9 +299,14 @@ for i, physio_fname in enumerate(physio_flist):
             fmri_segment = data2.loc[int(start)-padding_samples:int(stop)+padding_samples].to_numpy()
 =======
             print(f"start, stop : {start}, {stop}")
+<<<<<<< HEAD
             physio_segment = data1.iloc[int(start):int(stop), 'x0']
             fmri_segment = data2.iloc[int(start):int(stop), 'x0']
 >>>>>>> 57f168e (BUG: print index)
+=======
+            physio_segment = data1.iloc[int(start):int(stop)]
+            fmri_segment = data2.iloc[int(start):int(stop)]
+>>>>>>> 161ce55 (BUG: update window)
             physio_stim.append(physio_segment)
             fmri_stim.append(fmri_segment)
  
@@ -309,7 +314,14 @@ for i, physio_fname in enumerate(physio_flist):
         # data1 = interpolate_data(physio_standardized)
         # data2 = interpolate_data(fmri_standardized)
         for i in np.arange(len(physio_stim)):
+<<<<<<< HEAD
             
+=======
+            data1 = physio_stim[i]
+            data2 = fmri_stim[i]
+            tvec = np.arange(0, len(data1) / Fs, 1/Fs)
+            tvec = tvec[:len(data1)]
+>>>>>>> 161ce55 (BUG: update window)
             # 4-2. plot parameters
             fig = plt.figure(figsize=(16, 8))
             gs = gridspec.GridSpec(2, 4, figure=fig)
@@ -331,7 +343,12 @@ for i, physio_fname in enumerate(physio_flist):
             ax1.set_title('raw signals')
 
             # 4-2.B:  Compute and plot PSD ______________________________
+<<<<<<< HEAD
             ws = 20 #len(physio_stim[i]) // 2
+=======
+            #ws = int(Fs * 15)
+            ws = len(data1) // 2
+>>>>>>> 161ce55 (BUG: update window)
             window = hann(ws)
             noverlap = ws // 2
             nfft = len(tvec)
@@ -356,6 +373,7 @@ for i, physio_fname in enumerate(physio_flist):
             # 4-2.D: Compute and plot cross-correlation
             maxlags = 20#len(physio_stim[i]) // 2#int(Fs * 30)
             acf = correlate(physio_stim[i], fmri_stim[i], mode='full', method='auto') # matlab: xcorr
+            #maxlags = int(Fs * 30)
             # acf /= len(data1)  # Normalizing
             norm_factor = np.sqrt(np.sum(physio_stim[i]**2) * np.sum(fmri_stim[i]**2))
             ccf = acf / norm_factor
