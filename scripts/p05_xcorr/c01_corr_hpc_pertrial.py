@@ -66,15 +66,6 @@ sub = sub_list[slurm_id]#f'sub-{sub_list[slurm_id]:04d}'
 save_dir = join(save_top_dir, sub)
 Path(save_dir).mkdir(parents=True, exist_ok=True)
 runtype = 'pain'
-# def winsorize_mad(data, threshold=3.5):
-#     winsorized_data = data
-#     median = np.median(data)
-#     mad = np.median(np.abs(data - median))
-#     threshold_value = threshold * mad
-#     winsorized_data[winsorized_data < -threshold_value] = np.nan
-#     winsorized_data[winsorized_data > threshold_value] = np.nan
-#     # winsorized_data = np.clip(data, median - threshold_value, median + threshold_value)
-#     return winsorized_data
 
 def winsorize_mad(data, threshold=3.5):
     wz = Winsorizer(capping_method='mad', tail='both', fold=threshold)
@@ -271,12 +262,8 @@ for i, physio_fname in enumerate(physio_flist):
         # extract stimuli time from onset values
         event_stimuli_start = converted_df_meta['event_stimuli']['start']
         event_stimuli_stop =  converted_df_meta['event_stimuli']['stop']
-<<<<<<< HEAD
-        padding_seconds = 2  # seconds
-=======
         padding_seconds = 5  # seconds
         print(event_stimuli_start)
->>>>>>> 57f168e (BUG: print index)
         padding_samples = padding_seconds * fmri_samplingrate  # Convert seconds to samples based on sampling rate
 
         beh_meta = pd.read_csv(join(physio_dir,sub, ses, f"{sub}_{ses}_{run}_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-False_physio-scl.csv" ))
@@ -294,19 +281,8 @@ for i, physio_fname in enumerate(physio_flist):
         for i, (start, stop ) in enumerate(zip(event_stimuli_start, event_stimuli_stop)):
             # start_index = max(0, int(start) - padding_samples)
             # stop_index = min(len(data1) - 1, np.round(stop)  + padding_samples)
-<<<<<<< HEAD
             physio_segment = data1.loc[int(start)-padding_samples:int(stop)+padding_samples].to_numpy()
             fmri_segment = data2.loc[int(start)-padding_samples:int(stop)+padding_samples].to_numpy()
-=======
-            print(f"start, stop : {start}, {stop}")
-<<<<<<< HEAD
-            physio_segment = data1.iloc[int(start):int(stop), 'x0']
-            fmri_segment = data2.iloc[int(start):int(stop), 'x0']
->>>>>>> 57f168e (BUG: print index)
-=======
-            physio_segment = data1.iloc[int(start):int(stop)]
-            fmri_segment = data2.iloc[int(start):int(stop)]
->>>>>>> 161ce55 (BUG: update window)
             physio_stim.append(physio_segment)
             fmri_stim.append(fmri_segment)
  
@@ -314,14 +290,7 @@ for i, physio_fname in enumerate(physio_flist):
         # data1 = interpolate_data(physio_standardized)
         # data2 = interpolate_data(fmri_standardized)
         for i in np.arange(len(physio_stim)):
-<<<<<<< HEAD
             
-=======
-            data1 = physio_stim[i]
-            data2 = fmri_stim[i]
-            tvec = np.arange(0, len(data1) / Fs, 1/Fs)
-            tvec = tvec[:len(data1)]
->>>>>>> 161ce55 (BUG: update window)
             # 4-2. plot parameters
             fig = plt.figure(figsize=(16, 8))
             gs = gridspec.GridSpec(2, 4, figure=fig)
@@ -343,12 +312,8 @@ for i, physio_fname in enumerate(physio_flist):
             ax1.set_title('raw signals')
 
             # 4-2.B:  Compute and plot PSD ______________________________
-<<<<<<< HEAD
             ws = 20 #len(physio_stim[i]) // 2
-=======
             #ws = int(Fs * 15)
-            ws = len(data1) // 2
->>>>>>> 161ce55 (BUG: update window)
             window = hann(ws)
             noverlap = ws // 2
             nfft = len(tvec)
@@ -422,7 +387,7 @@ for i, physio_fname in enumerate(physio_flist):
                 'ses': ses,
                 'run': run,
                 'roi': roi_ind,
-                'index': i,  # Assuming 'i' is an index, renamed to avoid confusion
+                'trial_index': i,  # Assuming 'i' is an index, renamed to avoid confusion
                 'max_acf_value': max_acf_value,
                 'max_lag_time': max_lag_time, 
                 'cuetype':beh_meta.param_cue_type[i],
