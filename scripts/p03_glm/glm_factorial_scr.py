@@ -19,6 +19,7 @@ from nilearn import glm
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 from feature_engine.outliers import Winsorizer
+import seaborn as sns
 
 
 
@@ -149,15 +150,22 @@ def boxcar_function(x, start, end):
         return 1
     else:
         return 0
-    
+def adjust_baseline(data, baseline):
+    if baseline > 0:
+        return data - baseline  # Subtract if baseline is positive
+    else:
+        return data + abs(baseline)  # Add the absolute value if baseline is negative
 # %%----------------------------------------------------------------------------
 #                               parameters
 # ------------------------------------------------------------------------------
+plt.rcParams['font.family'] = 'Arial'
+plt.rcParams['font.size'] = 10  # You can also set a default font size if desired
+
 scl_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio_nobaseline/physio01_SCL'                                   
 save_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio_nobaseline/glm/factorial_boxcar'
 
-scl_dir = '/Volumes/spacetop_projects_cue/analysis/physio_nobaseline/physio01_SCL' 
-save_dir = '/Volumes/spacetop_projects_cue/analysis/physio_nobaseline/glm/factorial_boxcar'                                      
+scl_dir = '/Volumes/spacetop_projects_cue/analysis/physio/nobaseline/physio01_SCL' 
+save_dir = '/Volumes/spacetop_projects_cue/analysis/physio/nobaseline/glm'                
 
 # # local
 # scl_dir = '/Users/h/Documents/projects_local/sandbox/physioresults/physio01_SCL'  
@@ -187,6 +195,7 @@ Path(join(save_dir)).mkdir(parents=True, exist_ok=True)
 # %%----------------------------------------------------------------------------
 #                               glm estimation
 # ------------------------------------------------------------------------------
+
 for ind, scl_fpath in enumerate(sorted(filtered_list)):
 
     basename = os.path.basename(scl_fpath)
@@ -199,11 +208,32 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
         js = json.load(json_file)
     betadf.at[ind, 'filename'] = basename
 
-
     # remove outlier ___________________________________________________________
-    winsor_physio = winsorize_mad(pdf, threshold=7)
-    # winsor_physio_interp = interpolate_data(winsor_physio)
+    winsor_mad = winsorize_mad(pdf, threshold=5)
 
+    # baseline correction ____________________________
+    # Adjusting the calculation for the new requirement
+    # The first interval starts from 0 to the first 'event_cue' 'start'
+    iti_intervals = []#[(0, js['event_cue']['start'][0])]
+
+    # For subsequent intervals, use the previous 'event_actualrating' 'stop' time to the current 'event_cue' 'start' time
+    for i in range(1, len(js['event_cue']['start'])):
+        iti_interval = (js['event_actualrating']['stop'][i-1], js['event_cue']['start'][i])
+        iti_intervals.append(iti_interval)
+
+    winsor_scaled = winsor_mad/ np.nanstd(winsor_mad)
+    # averages
+    averages = []
+    for start, stop in iti_intervals:
+        # Assuming the index is directly comparable to the start and stop times
+        filtered_values = winsor_scaled.loc[start/25:(stop-1)/25] if stop > start else pd.Series(dtype='float64')
+        averages.append(np.nanmean(filtered_values))
+    baseline_value = np.nanmean(averages)
+
+
+    winsor_physio = adjust_baseline(winsor_scaled, baseline_value)
+    # (winsor_physio - np.mean(winsor_physio))/np.nanstd(winsor_physio)
+    # winsor_physio_interp = interpolate_data(winsor_physio)
 
     # fetch SCR curve __________________________________________________________
     pspm_scr = pd.read_csv('/Users/h/Documents/projects_local/spacetop_biopac/scripts/p03_glm/pspm-scrf_td-25.txt', sep='\t')
@@ -232,7 +262,7 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
                  "low_stim-high_cue": 1,
                  "low_stim-low_cue": 1
                 }
-    
+
     # convolve onsets with boxcar and canonical SCR ____________________________
     #       UPDATE 02/27/2024. 
     #       We're creating boxcar function based on the stimulus duration
@@ -254,19 +284,41 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
         total_regressor.append(convolved_signal)
         boxcar.append(signal)
 
-    boxcar_summed = np.sum(np.stack(boxcar), axis=0)
-
+    boxcar_total = np.sum(np.stack(boxcar), axis=0)
+    boxcar_summed = (boxcar_total > 0).astype(int)
     # plot convolved signal ____________________________________________________
     Xmatrix = np.vstack(total_regressor)
-    normalized_Xmatrix = (Xmatrix - Xmatrix.min()) / (Xmatrix.max() - Xmatrix.min())
+    normalized_Xmatrix =  (Xmatrix - Xmatrix.min()) / (Xmatrix.max() - Xmatrix.min())
+    # Xmatrix
     y = winsor_physio #pdf[0]
+    total_time = len(y) / 25
+    index = np.arange(len(y))
+    x_seconds = index / 25  # Convert index to seconds
     index = np.arange(len(y))#y.index
     for cond_ind in np.arange(len(cond_list)):
-        plt.plot(index, normalized_Xmatrix[cond_ind].T)
-    plt.plot(index, y)
-    plt.plot(index, boxcar_summed)
-    plt.show()
+        plt.plot(x_seconds, normalized_Xmatrix[cond_ind].T)
+    # TODO; display x ticks in seconds
+ 
+
+    boxheight = (np.max(winsor_physio) - np.min(winsor_physio)) * 0.25
+    plt.xlim(0, total_time)
+    y_min, y_max = plt.ylim()
+    plt.plot(x_seconds, y, '#2F2f2f', label='SCR signal',alpha=1, linewidth=.5) #signal
+    boxcar_height = np.max(boxcar_summed)
+    plt.fill_between(x_seconds,  
+                     y_min, y_max, where=boxcar_summed > 0, 
+                #  boxcar_summed*y_min, boxcar_summed *y_max,
+                 edgecolor=None,
+                 facecolor='#9f9f9f', alpha=0.3, label='heat onset')
+    plt.xlabel("Time (s)", fontsize=14)
+    plt.ylabel("SCR amplitude (A.U.)", fontsize=14)
+    plt.title(f"{sub} {ses} {run}\nSkin conductance GLM fit", fontsize=18)
+    plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+
+    sns.despine()
+    
     plt.savefig(join(save_dir, basename[:-4]+'.png'))
+    plt.show()
     plt.close()
 
     # linear regression ________________________________________________________
@@ -323,18 +375,44 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
                                               mode='full')[:len(predicted_signal)]
         predicted_total_signal.append(predicted_convolved_signal)
 
-    # plot convolved signal ____________________________________________________
-    boxcar_summed = np.sum(np.stack(boxcar), axis=0) * np.mean(reg.coef_[0])
+    # PLOT2 convolved signal ____________________________________________________
+
+
+    # boxcar_summed = np.sum(np.stack(boxcar), axis=0) * np.mean(reg.coef_[0])
 
     predictedXmatrix = np.vstack(predicted_total_signal)
     y = winsor_physio
-    index = np.arange(len(y)) 
-    for cond_ind in np.arange(len(cond_list)):
-        plt.plot(index, predictedXmatrix[cond_ind].T)
-    plt.plot(index, y)
-    plt.plot(index, boxcar_summed)
-    plt.title(f"{sub} {ses} {run}")
+    boxheight = (np.max(winsor_physio) - np.min(winsor_physio)) * 0.25
+    index = np.arange(len(y))
+    x_seconds = index / 25
+    color = {'high_stim-high_cue':'#DB2A04',
+        'high_stim-low_cue': '#521240',
+        'med_stim-high_cue': '#A33B10',
+        'med_stim-low_cue': '#E3A833',
+        'low_stim-high_cue': '#3343AD',
+        'low_stim-low_cue': '#5DA5F8'}
+    plt.figure(figsize=(10, 5))  # Set the figure size as desired
+    for cond_ind, cond_name in enumerate(cond_list):
+        plt.plot(x_seconds, predictedXmatrix[cond_ind].T, color[cond_name],
+                 linestyle=(0, (1, 1)), linewidth=2, label=list(color.keys())[cond_ind])
+    plt.plot(x_seconds, y, '#2F2f2f', label='SCR signal',alpha=1, linewidth=.5) #signal
+    y_min, y_max = plt.ylim()
+    boxcar_height = np.max(boxcar_summed)
+    plt.fill_between(x_seconds,  
+                 boxcar_summed*y_min, boxcar_summed *y_max,
+                 edgecolor=None,
+                 facecolor='#9f9f9f', alpha=0.3, label='heat onset')
+    plt.xlabel("Time (s)", fontsize=14)
+    plt.ylabel("SCR amplitude (A.U.)", fontsize=14)
+    plt.title(f"{sub} {ses} {run}\nSkin conductance GLM fit", fontsize=18)
+    plt.legend(loc='upper left', bbox_to_anchor=(1.05, 1), borderaxespad=0.)
+    plt.tight_layout()
+    # plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+
+    sns.despine()
+    
     plt.savefig(join(save_dir, basename[:-4]+'_modelfitted.png'))
+    plt.show()
     plt.close()
 
 # extract metadata and save dataframe __________________________________________
