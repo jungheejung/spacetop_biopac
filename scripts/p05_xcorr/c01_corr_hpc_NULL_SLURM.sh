@@ -1,5 +1,5 @@
 #!/bin/bash -l
-#SBATCH --job-name=glm
+#SBATCH --job-name=nullxco
 #SBATCH --nodes=1
 #SBATCH --ntasks=16
 #SBATCH --mem-per-cpu=8gb
