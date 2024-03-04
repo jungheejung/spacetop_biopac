@@ -245,7 +245,7 @@ for i, physio_fname in enumerate(physio_flist):
 
 
 # identify trials _____
-        df_metajson = '/Volumes/spacetop_projects_cue/analysis/physio/physio01_SCL_25s/sub-0081/ses-04/sub-0081_ses-04_run-03_runtype-pain_samplingrate-2000_onset.json'
+        df_metajson = join(os.path.dirname(physio_fname), f"{sub}_{ses}_{run}_runtype-{runtype}_samplingrate-2000_onset.json")
 
         with open(df_metajson, 'r') as file:
             df_meta = json.load(file)
