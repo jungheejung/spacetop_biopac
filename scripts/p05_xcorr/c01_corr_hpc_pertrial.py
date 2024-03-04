@@ -274,17 +274,17 @@ for i, physio_fname in enumerate(physio_flist):
         padding_seconds = 2  # seconds
         padding_samples = padding_seconds * fmri_samplingrate  # Convert seconds to samples based on sampling rate
 
-        beh_meta = pd.read_csv(join('/Volumes/spacetop_projects_cue/analysis/physio/nobaseline/physio01_SCL',sub, ses, f"{sub}_{ses}_{run}_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-False_physio-scl.csv" ))
+        beh_meta = pd.read_csv(join(physio_dir,sub, ses, f"{sub}_{ses}_{run}_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-False_physio-scl.csv" ))
 
-#        beh_meta = pd.read_csv(join()'/Volumes/spacetop_projects_cue/analysis/physio/physio01_SCL_25s/sub-0081/ses-04/sub-0081_ses-04_run-03_runtype-pain_epochstart--3_epochend-20_physio-scl.csv')
 
 # extract physio and fmri data based on onset time
-        data1 = physio_shave.squeeze()
-        data2 = fmri_shave.squeeze()
+        #data1 = physio_shave.squeeze()
+        #data2 = fmri_shave.squeeze()
         physio_stim = []
         fmri_stim = []
 
-
+        data1 = physio_standardized.squeeze()
+        data2 = fmri_standardized.squeeze()
         for i, (start, stop ) in enumerate(zip(event_stimuli_start, event_stimuli_stop)):
             # start_index = max(0, int(start) - padding_samples)
             # stop_index = min(len(data1) - 1, np.round(stop)  + padding_samples)
