@@ -218,8 +218,8 @@ for i, physio_fname in enumerate(physio_flist):
 
         Fs = 1/TR #1/TR
         
-        physio_standardized = (physio_outlier - np.nanmean(physio_outlier) )/ np.nanstd(physio_outlier)
-        fmri_standardized = (fmri_outlier - np.nanmean(fmri_outlier))/np.nanstd(fmri_outlier)
+        physio_standardized =physio_outlier# (physio_outlier - np.nanmean(physio_outlier) )/ np.nanstd(physio_outlier)
+        fmri_standardized = fmri_outlier#(fmri_outlier - np.nanmean(fmri_outlier))/np.nanstd(fmri_outlier)
         total_length = len(fmri_standardized)
         #fmri_shave = fmri_standardized[6:]
         #physio_shave= physio_standardized[6:total_length] 
