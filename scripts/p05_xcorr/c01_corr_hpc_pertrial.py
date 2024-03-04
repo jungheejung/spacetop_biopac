@@ -230,10 +230,10 @@ for i, physio_fname in enumerate(physio_flist):
         physio_standardized = (physio_outlier - np.nanmean(physio_outlier) )/ np.nanstd(physio_outlier)
         fmri_standardized = (fmri_outlier - np.nanmean(fmri_outlier))/np.nanstd(fmri_outlier)
         total_length = len(fmri_standardized)
-        fmri_shave = fmri_standardized[6:]
-        physio_shave= physio_standardized[6:total_length] 
-        tvec = np.arange(0, len(physio_shave) / Fs, 1/Fs)
-        print(f"tvec: {len(tvec)}, physio:{physio_shave.shape}, fmri:{fmri_shave.shape}")
+        #fmri_shave = fmri_standardized[6:]
+        #physio_shave= physio_standardized[6:total_length] 
+        #tvec = np.arange(0, len(physio_shave) / Fs, 1/Fs)
+        #print(f"tvec: {len(tvec)}, physio:{physio_shave.shape}, fmri:{fmri_shave.shape}")
         from scipy.interpolate import interp1d
         # mean_data1 = np.nanmean(physio_standardized)
         # mean_data2 = np.nanmean(fmri_standardized)
@@ -271,7 +271,12 @@ for i, physio_fname in enumerate(physio_flist):
         # extract stimuli time from onset values
         event_stimuli_start = converted_df_meta['event_stimuli']['start']
         event_stimuli_stop =  converted_df_meta['event_stimuli']['stop']
+<<<<<<< HEAD
         padding_seconds = 2  # seconds
+=======
+        padding_seconds = 5  # seconds
+        print(event_stimuli_start)
+>>>>>>> 57f168e (BUG: print index)
         padding_samples = padding_seconds * fmri_samplingrate  # Convert seconds to samples based on sampling rate
 
         beh_meta = pd.read_csv(join(physio_dir,sub, ses, f"{sub}_{ses}_{run}_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-False_physio-scl.csv" ))
@@ -285,11 +290,18 @@ for i, physio_fname in enumerate(physio_flist):
 
         data1 = physio_standardized.squeeze()
         data2 = fmri_standardized.squeeze()
+        print(type(data1))
         for i, (start, stop ) in enumerate(zip(event_stimuli_start, event_stimuli_stop)):
             # start_index = max(0, int(start) - padding_samples)
             # stop_index = min(len(data1) - 1, np.round(stop)  + padding_samples)
+<<<<<<< HEAD
             physio_segment = data1.loc[int(start)-padding_samples:int(stop)+padding_samples].to_numpy()
             fmri_segment = data2.loc[int(start)-padding_samples:int(stop)+padding_samples].to_numpy()
+=======
+            print(f"start, stop : {start}, {stop}")
+            physio_segment = data1.iloc[int(start):int(stop), 'x0']
+            fmri_segment = data2.iloc[int(start):int(stop), 'x0']
+>>>>>>> 57f168e (BUG: print index)
             physio_stim.append(physio_segment)
             fmri_stim.append(fmri_segment)
  
@@ -391,7 +403,7 @@ for i, physio_fname in enumerate(physio_flist):
                 'sub': sub,
                 'ses': ses,
                 'run': run,
-                'roi': roi,
+                'roi': roi_ind,
                 'index': i,  # Assuming 'i' is an index, renamed to avoid confusion
                 'max_acf_value': max_acf_value,
                 'max_lag_time': max_lag_time, 
