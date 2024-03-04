@@ -271,9 +271,10 @@ for i, physio_fname in enumerate(physio_flist):
         # extract stimuli time from onset values
         event_stimuli_start = converted_df_meta['event_stimuli']['start']
         event_stimuli_stop =  converted_df_meta['event_stimuli']['stop']
-        padding_seconds = 5  # seconds
+        padding_seconds = 2  # seconds
         padding_samples = padding_seconds * fmri_samplingrate  # Convert seconds to samples based on sampling rate
-        beh_meta = pd.read_csv(join(physio_dir,sub, ses, f"{sub}_{ses}_{run}_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-False_physio-scl.csv" ))
+
+        beh_meta = pd.read_csv(join('/Volumes/spacetop_projects_cue/analysis/physio/nobaseline/physio01_SCL',sub, ses, f"{sub}_{ses}_{run}_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-False_physio-scl.csv" ))
 
 #        beh_meta = pd.read_csv(join()'/Volumes/spacetop_projects_cue/analysis/physio/physio01_SCL_25s/sub-0081/ses-04/sub-0081_ses-04_run-03_runtype-pain_epochstart--3_epochend-20_physio-scl.csv')
 
@@ -287,8 +288,8 @@ for i, physio_fname in enumerate(physio_flist):
         for i, (start, stop ) in enumerate(zip(event_stimuli_start, event_stimuli_stop)):
             # start_index = max(0, int(start) - padding_samples)
             # stop_index = min(len(data1) - 1, np.round(stop)  + padding_samples)
-            physio_segment = data1.loc[int(start):int(stop), 'x0']
-            fmri_segment = data2.loc[int(start):int(stop), 'x0']
+            physio_segment = data1.loc[int(start)-padding_samples:int(stop)+padding_samples].to_numpy()
+            fmri_segment = data2.loc[int(start)-padding_samples:int(stop)+padding_samples].to_numpy()
             physio_stim.append(physio_segment)
             fmri_stim.append(fmri_segment)
  
@@ -296,7 +297,7 @@ for i, physio_fname in enumerate(physio_flist):
         # data1 = interpolate_data(physio_standardized)
         # data2 = interpolate_data(fmri_standardized)
         for i in np.arange(len(physio_stim)):
-
+            
             # 4-2. plot parameters
             fig = plt.figure(figsize=(16, 8))
             gs = gridspec.GridSpec(2, 4, figure=fig)
@@ -305,23 +306,26 @@ for i, physio_fname in enumerate(physio_flist):
             ax3 = fig.add_subplot(gs[1, 1]) # Subplot 2 on row 2
             ax4 = fig.add_subplot(gs[1, 2]) # Subplot 3 on row 2
             ax5 = fig.add_subplot(gs[1, 3]) # Subplot 3 on row 2
-
+            # data1 = physio_iti[i]
+            # data2 = fmri_iti[i]
+            tvec = np.arange(0, len(physio_stim[i]) / Fs, 1/Fs)
+            tvec = tvec[:len(physio_stim[i])]
             # 4-2.A: Plot raw signals ______________________________
-            ax1.plot(tvec, data1, 'r', linewidth=1, alpha=0.7)
-            ax1.plot(tvec, data2, 'b', linewidth=1, alpha=0.7)
+            ax1.plot(tvec, physio_stim[i], 'r', linewidth=1, alpha=0.7)
+            ax1.plot(tvec, fmri_stim[i], 'b', linewidth=1, alpha=0.7)
             ax1.legend(['physio', f'fmri ROI'])
             ax1.set_xlabel('time (s)')
             ax1.set_ylabel('amplitude normalized (a.u.)')
             ax1.set_title('raw signals')
 
             # 4-2.B:  Compute and plot PSD ______________________________
-            ws = int(Fs * 15)
+            ws = len(physio_stim[i]) // 2
             window = hann(ws)
             noverlap = ws // 2
             nfft = len(tvec)
 
-            f, Pxx = welch(data1, Fs, window=window, noverlap=noverlap, nfft=nfft)
-            _, Pyy = welch(data2, Fs, window=window, noverlap=noverlap, nfft=nfft)
+            f, Pxx = welch(physio_stim[i], Fs, window=window, noverlap=noverlap, nfft=nfft)
+            _, Pyy = welch(fmri_stim[i], Fs, window=window, noverlap=noverlap, nfft=nfft)
 
             ax2.plot(f, np.abs(Pxx), 'r', f, np.abs(Pyy), 'b')
             ax2.set_xlim([0, 1])
@@ -330,7 +334,7 @@ for i, physio_fname in enumerate(physio_flist):
             ax2.set_title('PSD')
 
             # 4-2.C: Compute and plot cross-spectrum
-            f, Pxy = csd(data1, data2, Fs, window=window, noverlap=noverlap, nfft=nfft)
+            f, Pxy = csd(physio_stim[i], fmri_stim[i], Fs, window=window, noverlap=noverlap, nfft=nfft)
             ax3.plot(f, np.abs(Pxy))
             ax3.set_xlim([0, Fs/2]) # Nyquist frequency is the upper bound
             ax3.set_xlabel('Frequency (Hz)')
@@ -338,10 +342,10 @@ for i, physio_fname in enumerate(physio_flist):
             ax3.set_title('cross-spectrum')
 
             # 4-2.D: Compute and plot cross-correlation
-            maxlags = int(Fs * 30)
-            acf = correlate(data1, data2, mode='full', method='auto') # matlab: xcorr
+            maxlags = len(physio_stim[i]) // 2#int(Fs * 30)
+            acf = correlate(physio_stim[i], fmri_stim[i], mode='full', method='auto') # matlab: xcorr
             # acf /= len(data1)  # Normalizing
-            norm_factor = np.sqrt(np.sum(data1**2) * np.sum(data2**2))
+            norm_factor = np.sqrt(np.sum(physio_stim[i]**2) * np.sum(fmri_stim[i]**2))
             ccf = acf / norm_factor
             lags = np.arange(-maxlags, maxlags + 1) * (1./Fs)
 
@@ -360,7 +364,7 @@ for i, physio_fname in enumerate(physio_flist):
 
 
             # 4-2.E: Coherence
-            f_coh, Cxy = coherence(data1, data2, Fs, window=hann(ws), noverlap=noverlap, nfft=nfft)
+            f_coh, Cxy = coherence(physio_stim[i], fmri_stim[i], Fs, window=hann(ws), noverlap=noverlap, nfft=nfft)
             ax5.plot(f_coh, Cxy)
             ax5.set_xlim([0, Fs/2])  # Limit to Nyquist frequency
             ax5.set_xlabel('frequency [Hz]')
@@ -390,7 +394,9 @@ for i, physio_fname in enumerate(physio_flist):
                 'roi': roi,
                 'index': i,  # Assuming 'i' is an index, renamed to avoid confusion
                 'max_acf_value': max_acf_value,
-                'max_lag_time': max_lag_time
+                'max_lag_time': max_lag_time, 
+                'cuetype':beh_meta.param_cue_type[i],
+                'stimtype':beh_meta.param_stimulus_type[i]
             })
     roi_df = pd.DataFrame(roi_data)
     save_fname = join(save_top_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_xcorr-fmri-physio.tsv")
