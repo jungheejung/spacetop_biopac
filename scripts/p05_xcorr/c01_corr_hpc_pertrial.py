@@ -59,16 +59,12 @@ fmriprep_dir = args.fmriprep_dir
 save_top_dir = args.save_dir
 runtype = args.runtype
 # %% 0. parameters
-sub_folders = next(os.walk(physio_dir))[1]
+#sub_folders = next(os.walk(physio_dir))[1]
+_, sub_folders, _ = next(os.walk(physio_dir))
 sub_list = [i for i in sorted(sub_folders) if i.startswith('sub-')]
 sub = sub_list[slurm_id]#f'sub-{sub_list[slurm_id]:04d}'
 save_dir = join(save_top_dir, sub)
 Path(save_dir).mkdir(parents=True, exist_ok=True)
-# physio_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop_data/physio/physio03_bids/task-cue'
-physio_dir = '/Users/h/Documents/projects_local/sandbox/physiodata'
-# fmriprep_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop_data/derivatives/fmriprep/results/fmriprep/'
-fmriprep_dir = '/Users/h/Documents/projects_local/sandbox/fmriprep_bold'
-save_dir = '/Users/h/Documents/projects_local/sandbox'
 runtype = 'pain'
 # def winsorize_mad(data, threshold=3.5):
 #     winsorized_data = data
@@ -102,7 +98,8 @@ baselinecorrect = "False"
 dest_samplingrate = 25
 # physio_flist = glob.glob(join(physio_dir, '**', '{sub}_ses-*_run-*_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.tsv'), recursive=True)
 physio_flist = glob.glob(join(physio_dir, '**', f"{sub}_*_runtype-{runtype}_epochstart-{SCL_epoch_start}_epochend-{SCL_epoch_end}_baselinecorrect-{baselinecorrect}_samplingrate-{dest_samplingrate}_physio-eda.tsv"), recursive=True)
-
+print(physio_dir)
+print(physio_flist)
 # %%
 for i, physio_fname in enumerate(physio_flist):
 
