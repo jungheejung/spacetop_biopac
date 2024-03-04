@@ -86,9 +86,10 @@ plt.show()
 f, t, Sxx = signal.spectrogram(resamp, fs=sampling_rate, 
                              nfft=nff)
 plt.pcolormesh(t, f[:500], Sxx[:500], shading='gouraud')
-plt.title('Raw data (first 200 frequencies)')
+plt.title('Raw data (first 500 frequencies)')
 plt.ylabel('Frequency [Hz]')
 plt.xlabel('Time [sec]')
+sns.despine()
 # plt.show()
 
 # 2) load onset data and mark data
@@ -105,7 +106,7 @@ onset_stop_sec = [x/onset_samplingrate for x in onset['event_stimuli']['stop']]
 #     plt.axvline(x=time, color='g', linestyle='--')  
 # for time in onset_stop_sec:
 #     plt.axvline(x=time, color='r', linestyle='--') 
-plt.ylim([-0.1, max(f[:500])])  # Assuming your frequency range is positive
+plt.ylim([0, max(f[:500])])  # Assuming your frequency range is positive
 
 for x in range(len(onset_start_sec)):
     plt.axvspan(onset_start_sec[x], onset_stop_sec[x], color='red', alpha=0.2)  # Adjust the color and alpha as needed
