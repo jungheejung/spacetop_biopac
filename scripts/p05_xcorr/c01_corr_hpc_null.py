@@ -208,7 +208,7 @@ for i, physio_fname in enumerate(physio_flist):
     #                                  method="butterworth",
     #                                  order=2)
     # physio_filter = resamp #df['physio_eda'].to_numpy()
-    print(f"physio filter shape: {physio_filter.shape}")
+    #print(f"physio filter shape: {physio_filter.shape}")
     # physio_detrend = nk.signal_detrend(physio_filter, 
     #                                    method="polynomial", 
     #                                    order=0)
