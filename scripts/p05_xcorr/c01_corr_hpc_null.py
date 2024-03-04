@@ -68,7 +68,7 @@ physio_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop_data/physio/phys
 # physio_dir = '/Users/h/Documents/projects_local/sandbox/physiodata'
 SCL_epoch_start = -3
 SCL_epoch_end = 20
-baselinecorrect = False
+baselinecorrect = "False"
 dest_samplingrate = 25
 # fmriprep_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop_data/derivatives/fmriprep/results/fmriprep/'
 # fmriprep_dir = '/Users/h/Documents/projects_local/sandbox/fmriprep_bold'
@@ -97,7 +97,7 @@ def interpolate_data(data):
 # physio_flist = glob.glob(join(physio_dir, '**', '{sub}_ses-*_run-*_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.tsv'), recursive=True)
 
 physio_flist = glob.glob(join(physio_dir, '**', f"{sub}_*_runtype-{runtype}_epochstart-{SCL_epoch_start}_epochend-{SCL_epoch_end}_baselinecorrect-{baselinecorrect}_samplingrate-{dest_samplingrate}_physio-eda.tsv"), recursive=True)
-
+print(physio_flist)
 # /Volumes/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio/nobaseline/physio01_SCL/sub-0015/ses-01/sub-0015_ses-01_run-01_runtype-pain_epochstart--3_epochend-20_baselinecorrect-False_samplingrate-25_physio-eda.tsv
 # %%
 for i, physio_fname in enumerate(physio_flist):
