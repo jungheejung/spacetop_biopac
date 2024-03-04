@@ -8,7 +8,7 @@
 #SBATCH -e ./log_xcorr/xcorr_%A_%a.e
 #SBATCH --account=DBIC
 #SBATCH --partition=standard
-#SBATCH --array=1-133%10
+#SBATCH --array=1-13
 
 conda activate biopac
 echo "SLURMSARRAY: " ${SLURM_ARRAY_TASK_ID}
@@ -19,7 +19,7 @@ FMRIPREP="/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop_data/derivatives/fmr
 SAVE="/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio/nobaseline/xcorr_trial"
 
 
-python ${PWD}/c01_corr_hpc.py \
+python ${PWD}/c01_corr_hpc_pertrial.py \
 --slurm-id ${ID} \
 --physio-dir ${PHYSIO} \
 --fmriprep-dir ${FMRIPREP} \
