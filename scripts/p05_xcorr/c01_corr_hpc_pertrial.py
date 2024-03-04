@@ -257,8 +257,15 @@ for i, physio_fname in enumerate(physio_flist):
         with open(df_metajson, 'r') as file:
             df_meta = json.load(file)
             print(df_meta)
+        match = re.search(r"samplingrate-(\d+)", df_metajson)
 
-        conversion_factor = source_samplingrate / fmri_samplingrate
+        if match:
+            # Extract the number following "samplingrate-"
+            metadata_sampling_rate = int(match.group(1))
+            print("Sampling rate:", metadata_sampling_rate)
+        else:
+            print("Sampling rate not found")
+        conversion_factor = metadata_sampling_rate / fmri_samplingrate
         converted_df_meta = {}
         for event_type, times in df_meta.items():
             converted_df_meta[event_type] = {}
@@ -280,7 +287,7 @@ for i, physio_fname in enumerate(physio_flist):
         fmri_stim = []
 
 
-        for i, (start, stop, cue_type) in enumerate(zip(event_stimuli_start, event_stimuli_stop)):
+        for i, (start, stop ) in enumerate(zip(event_stimuli_start, event_stimuli_stop)):
             start_index = max(0, int(start) - padding_samples)
             stop_index = min(len(data1) - 1, np.round(stop)  + padding_samples)
             physio_segment = data1.loc[int(start_index):int(stop_index), 'x0']
