@@ -58,6 +58,7 @@ physio_dir = args.physio_dir
 fmriprep_dir = args.fmriprep_dir
 save_top_dir = args.save_dir
 runtype = args.runtype
+lag_window = 5
 # %% 0. parameters
 #sub_folders = next(os.walk(physio_dir))#[0]
 _, sub_folders, _ = next(os.walk(physio_dir))
@@ -116,10 +117,10 @@ for i, physio_fname in enumerate(physio_flist):
     # 3-1. load physio data ________________________________________________
     df = pd.read_csv(physio_fname, sep='\t')
     # resample physio data (2000hz to 25hz)
-    source_samplingrate=2000
-    dest_samplingrate=25
-    resamp = nk.signal_resample(
-                df['physio_eda'].to_numpy(),  method='interpolation', sampling_rate=source_samplingrate, desired_sampling_rate=dest_samplingrate)
+    source_samplingrate=25
+    dest_samplingrate=1/0.46
+    # resamp = nk.signal_resample(
+    #             df['physio_eda'].to_numpy(),  method='interpolation', sampling_rate=source_samplingrate, desired_sampling_rate=dest_samplingrate)
 
     # filter
     # butterworth
@@ -191,16 +192,17 @@ for i, physio_fname in enumerate(physio_flist):
     time_series = masker.fit_transform(fmri_fname, confounds=subset_confounds.fillna(subset_confounds.median()))
 
     # 3-4. resample physio to fmri TR
+    physio_samplingrate = 25
     TR=0.46
     fmri_samplingrate = 1/0.46
     # resamp physio data to TR sampling rate
     physio_tr = nk.signal_resample(
-                df['physio_eda'].to_numpy(),  method='interpolation', sampling_rate=source_samplingrate, desired_sampling_rate=fmri_samplingrate)
+                df['physio_eda'].to_numpy(),  method='interpolation', sampling_rate=physio_samplingrate, desired_sampling_rate=fmri_samplingrate)
     physio_center = physio_tr - np.nanmean(physio_tr)
     physio_filter = nk.signal_filter(physio_center, 
                                      sampling_rate=dest_samplingrate,
-                                     highcut=1,
-                                     lowcue=.01,
+                                     highcut=Fs//2,
+                                     lowcut=.01,
                                      method="butterworth",
                                      order=2)
     print(f"physio filter shape: {physio_filter.shape}")
@@ -250,8 +252,15 @@ for i, physio_fname in enumerate(physio_flist):
         with open(df_metajson, 'r') as file:
             df_meta = json.load(file)
             print(df_meta)
+        match = re.search(r"samplingrate-(\d+)", df_metajson)
 
-        conversion_factor = source_samplingrate / fmri_samplingrate
+        if match:
+            # Extract the number following "samplingrate-"
+            metadata_sampling_rate = int(match.group(1))
+            print("Sampling rate:", metadata_sampling_rate)
+        else:
+            print("Sampling rate not found")
+        conversion_factor = metadata_sampling_rate / fmri_samplingrate
         converted_df_meta = {}
         for event_type, times in df_meta.items():
             converted_df_meta[event_type] = {}
@@ -262,8 +271,8 @@ for i, physio_fname in enumerate(physio_flist):
         # TODO: baseline value
         iti_intervals = []
         # For subsequent intervals, use the previous 'event_actualrating' 'stop' time to the current 'event_cue' 'start' time
-        for i in range(1, len(df_meta['event_cue']['start'])):
-            iti_interval = (df_meta['event_actualrating']['stop'][i-1], df_meta['event_cue']['start'][i])
+        for i in range(1, len(converted_df_meta['event_cue']['start'])):
+            iti_interval = (converted_df_meta['event_actualrating']['stop'][i-1], converted_df_meta['event_cue']['start'][i])
             iti_intervals.append(iti_interval)
         padding_seconds = 2.5  # seconds
         padding_samples = padding_seconds * fmri_samplingrate 
@@ -289,8 +298,10 @@ for i, physio_fname in enumerate(physio_flist):
         beh_meta = pd.read_csv(join(physio_dir,sub, ses, f"{sub}_{ses}_{run}_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-False_physio-scl.csv" ))
 
 # extract physio and fmri data based on onset time
+        differences = [stop - start for start, stop in iti_intervals]
 
- 
+        differences
+        # physio_iti = np.mean(np.vstack(physio_iti), axis=0).T
         # Interpolate missing values
         # data1 = interpolate_data(physio_standardized)
         # data2 = interpolate_data(fmri_standardized)
@@ -298,6 +309,7 @@ for i, physio_fname in enumerate(physio_flist):
             data1 = physio_iti[i]
             data2 = fmri_iti[i]
             tvec = np.arange(0, len(data1) / Fs, 1/Fs)
+            tvec = tvec[:len(data1)]
             # 4-2. plot parameters
             fig = plt.figure(figsize=(16, 8))
             gs = gridspec.GridSpec(2, 4, figure=fig)
@@ -316,7 +328,8 @@ for i, physio_fname in enumerate(physio_flist):
             ax1.set_title('raw signals')
 
             # 4-2.B:  Compute and plot PSD ______________________________
-            ws = int(Fs * 15)
+            ws = int(Fs * lag_window)
+            ws = len(data1)
             window = hann(ws)
             noverlap = ws // 2
             nfft = len(tvec)
@@ -339,7 +352,12 @@ for i, physio_fname in enumerate(physio_flist):
             ax3.set_title('cross-spectrum')
 
             # 4-2.D: Compute and plot cross-correlation
-            maxlags = int(Fs * 30)
+            # stimulus_duration_sec = len()  # Example: 10 seconds
+            # half_stimulus_length_samples = (Fs * stimulus_duration_sec) // 2  # Convert half duration to samples
+            # maxlags = int(half_stimulus_length_samples)
+
+            maxlags = len(data1)//2#int(Fs * lag_window)
+            # maxlags = int(5 * Fs)
             acf = correlate(data1, data2, mode='full', method='auto') # matlab: xcorr
             # acf /= len(data1)  # Normalizing
             norm_factor = np.sqrt(np.sum(data1**2) * np.sum(data2**2))
@@ -388,7 +406,7 @@ for i, physio_fname in enumerate(physio_flist):
                 'sub': sub,
                 'ses': ses,
                 'run': run,
-                'roi': roi,
+                'roi': roi_ind,
                 'index': i,  # Assuming 'i' is an index, renamed to avoid confusion
                 'max_acf_value': max_acf_value,
                 'max_lag_time': max_lag_time
