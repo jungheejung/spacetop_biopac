@@ -96,8 +96,12 @@ def interpolate_data(data):
 # * baseline corrected
 # * detrend
 # * low pass filter of 1
-
-physio_flist = glob.glob(join(physio_dir, '**', '{sub}_ses-*_run-*_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.tsv'), recursive=True)
+SCL_epoch_start = -3
+SCL_epoch_end = 20
+baselinecorrect = "False"
+dest_samplingrate = 25
+# physio_flist = glob.glob(join(physio_dir, '**', '{sub}_ses-*_run-*_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-True_samplingrate-25_physio-eda.tsv'), recursive=True)
+physio_flist = glob.glob(join(physio_dir, '**', f"{sub}_*_runtype-{runtype}_epochstart-{SCL_epoch_start}_epochend-{SCL_epoch_end}_baselinecorrect-{baselinecorrect}_samplingrate-{dest_samplingrate}_physio-eda.tsv"), recursive=True)
 
 # %%
 for i, physio_fname in enumerate(physio_flist):
@@ -115,9 +119,12 @@ for i, physio_fname in enumerate(physio_flist):
     # 3-1. load physio data ________________________________________________
     df = pd.read_csv(physio_fname, sep='\t')
     # resample physio data (2000hz to 25hz)
-    source_samplingrate=2000
-    dest_samplingrate=25
-    resamp = nk.signal_resample(
+
+    TR =0.46
+    Fs = 1/TR #1/TR
+    source_samplingrate=25
+    dest_samplingrate=1/0.46
+    physio_resamp = nk.signal_resample(
                 df['physio_eda'].to_numpy(),  method='interpolation', sampling_rate=source_samplingrate, desired_sampling_rate=dest_samplingrate)
 
     # filter
@@ -193,8 +200,8 @@ for i, physio_fname in enumerate(physio_flist):
     TR=0.46
     fmri_samplingrate = 1/0.46
     # resamp physio data to TR sampling rate
-    physio_tr = nk.signal_resample(
-                df['physio_eda'].to_numpy(),  method='interpolation', sampling_rate=source_samplingrate, desired_sampling_rate=fmri_samplingrate)
+    # physio_tr = nk.signal_resample(
+    #             df['physio_eda'].to_numpy(),  method='interpolation', sampling_rate=source_samplingrate, desired_sampling_rate=fmri_samplingrate)
     # physio_center = physio_tr - np.nanmean(physio_tr)
     # physio_filter = nk.signal_filter(physio_center, 
     #                                  sampling_rate=dest_samplingrate,
@@ -216,7 +223,7 @@ for i, physio_fname in enumerate(physio_flist):
 
 
         fmri_outlier = winsorize_mad(roi.reshape(-1,1), threshold=7)
-        physio_outlier = winsorize_mad(physio_tr.reshape(-1,1), threshold=7)
+        physio_outlier = winsorize_mad(physio_resamp.reshape(-1,1), threshold=7)
         # fmri_outlier = interpolate_data(winsor_physio)
 
         # 4-2. plot and save
