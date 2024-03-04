@@ -195,12 +195,14 @@ for i, physio_fname in enumerate(physio_flist):
     # resamp physio data to TR sampling rate
     physio_tr = nk.signal_resample(
                 df['physio_eda'].to_numpy(),  method='interpolation', sampling_rate=source_samplingrate, desired_sampling_rate=fmri_samplingrate)
-    # physio_center = physio_tr - np.nanmean(physio_tr)
-    # physio_filter = nk.signal_filter(physio_center, 
-    #                                  sampling_rate=dest_samplingrate,
-    #                                  highcut=1,
-    #                                  method="butterworth",
-    #                                  order=2)
+    physio_center = physio_tr - np.nanmean(physio_tr)
+    physio_filter = nk.signal_filter(physio_center, 
+                                     sampling_rate=dest_samplingrate,
+                                     highcut=1,
+                                     lowcue=.01,
+                                     method="butterworth",
+                                     order=2)
+    print(f"physio filter shape: {physio_filter.shape}")
     # physio_detrend = nk.signal_detrend(physio_filter, 
     #                                    method="polynomial", 
     #                                    order=0)
@@ -216,7 +218,7 @@ for i, physio_fname in enumerate(physio_flist):
 
 
         fmri_outlier = winsorize_mad(roi.reshape(-1,1), threshold=7)
-        physio_outlier = winsorize_mad(physio_tr.reshape(-1,1), threshold=7)
+        physio_outlier = winsorize_mad(physio_filter.reshape(-1,1), threshold=7)
         # fmri_outlier = interpolate_data(winsor_physio)
 
         # 4-2. plot and save
