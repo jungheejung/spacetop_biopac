@@ -59,12 +59,13 @@ fmriprep_dir = args.fmriprep_dir
 save_top_dir = args.save_dir
 runtype = args.runtype
 # %% 0. parameters
-sub_folders = next(os.walk(physio_dir))[1]
+#sub_folders = next(os.walk(physio_dir))#[0]
+_, sub_folders, _ = next(os.walk(physio_dir))
 sub_list = [i for i in sorted(sub_folders) if i.startswith('sub-')]
 sub = sub_list[slurm_id]#f'sub-{sub_list[slurm_id]:04d}'
 save_dir = join(save_top_dir, sub)
 Path(save_dir).mkdir(parents=True, exist_ok=True)
-physio_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop_data/physio/physio03_bids/task-cue'
+#physio_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop_data/physio/physio03_bids/task-cue'
 # physio_dir = '/Users/h/Documents/projects_local/sandbox/physiodata'
 SCL_epoch_start = -3
 SCL_epoch_end = 20
@@ -268,7 +269,7 @@ for i, physio_fname in enumerate(physio_flist):
         padding_samples = padding_seconds * fmri_samplingrate 
         physio_iti = []
         fmri_iti = []
-        for i, (start, stop) in enumerate(zip(iti_intervals)):
+        for i, (start, stop) in enumerate(iti_intervals):
             start_index = max(0, int(start) - padding_samples)
             stop_index = min(len(physio_standardized) - 1, np.round(stop)  + padding_samples)
             physio_segment = physio_standardized.loc[int(start_index):int(stop_index), 'x0']
@@ -285,7 +286,7 @@ for i, physio_fname in enumerate(physio_flist):
         # event_stimuli_start = converted_df_meta['event_stimuli']['start']
         # event_stimuli_stop =  converted_df_meta['event_stimuli']['stop']
  # Convert seconds to samples based on sampling rate
-        beh_meta = pd.read_csv(join(physio_dir,sub, ses, f"{sub}_{ses}_{run}_runtype-{task}_epochstart--3_epochend-20_baselinecorrect-False_physio-scl.csv" ))
+        beh_meta = pd.read_csv(join(physio_dir,sub, ses, f"{sub}_{ses}_{run}_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-False_physio-scl.csv" ))
 
 # extract physio and fmri data based on onset time
 
