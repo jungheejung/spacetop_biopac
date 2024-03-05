@@ -8,7 +8,7 @@
 #SBATCH -e ./log_trial/xcorr_%A_%a.e
 #SBATCH --account=DBIC
 #SBATCH --partition=standard
-#SBATCH --array=1-3
+#SBATCH --array=1-133%30
 
 conda activate biopac
 echo "SLURMSARRAY: " ${SLURM_ARRAY_TASK_ID}
