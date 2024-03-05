@@ -416,6 +416,6 @@ for i, physio_fname in enumerate(physio_flist):
             })
     roi_df = pd.DataFrame(roi_data)
     save_fname = join(save_top_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_xcorr-fmri-physio.tsv")
-    roi_df.to_csv(save_fname,sep='\t')
+    roi_df.to_csv(save_fname,sep='\t', index=False)
 plt.close('all')
 print("complete!")
