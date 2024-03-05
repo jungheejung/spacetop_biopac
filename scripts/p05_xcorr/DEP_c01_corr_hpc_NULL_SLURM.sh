@@ -1,14 +1,14 @@
 #!/bin/bash -l
-#SBATCH --job-name=glm
+#SBATCH --job-name=nullxco
 #SBATCH --nodes=1
 #SBATCH --ntasks=16
 #SBATCH --mem-per-cpu=8gb
-#SBATCH --time=01:00:00
+#SBATCH --time=06:00:00
 #SBATCH -o ./log_xcorr/xcorr_%A_%a.o
 #SBATCH -e ./log_xcorr/xcorr_%A_%a.e
 #SBATCH --account=DBIC
 #SBATCH --partition=standard
-#SBATCH --array=1-3
+#SBATCH --array=1-133%50
 
 conda activate biopac
 echo "SLURMSARRAY: " ${SLURM_ARRAY_TASK_ID}

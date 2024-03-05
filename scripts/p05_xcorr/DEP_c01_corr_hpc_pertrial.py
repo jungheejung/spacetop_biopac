@@ -66,15 +66,6 @@ sub = sub_list[slurm_id]#f'sub-{sub_list[slurm_id]:04d}'
 save_dir = join(save_top_dir, sub)
 Path(save_dir).mkdir(parents=True, exist_ok=True)
 runtype = 'pain'
-# def winsorize_mad(data, threshold=3.5):
-#     winsorized_data = data
-#     median = np.median(data)
-#     mad = np.median(np.abs(data - median))
-#     threshold_value = threshold * mad
-#     winsorized_data[winsorized_data < -threshold_value] = np.nan
-#     winsorized_data[winsorized_data > threshold_value] = np.nan
-#     # winsorized_data = np.clip(data, median - threshold_value, median + threshold_value)
-#     return winsorized_data
 
 def winsorize_mad(data, threshold=3.5):
     wz = Winsorizer(capping_method='mad', tail='both', fold=threshold)
@@ -222,18 +213,18 @@ for i, physio_fname in enumerate(physio_flist):
         fmri_outlier = winsorize_mad(roi.reshape(-1,1), threshold=7)
         physio_outlier = winsorize_mad(physio_resamp.reshape(-1,1), threshold=7)
         # fmri_outlier = interpolate_data(winsor_physio)
-
+        print(f"fmri outlier shape {fmri_outlier.shape}")
         # 4-2. plot and save
 
         Fs = 1/TR #1/TR
         
-        physio_standardized = (physio_outlier - np.nanmean(physio_outlier) )/ np.nanstd(physio_outlier)
-        fmri_standardized = (fmri_outlier - np.nanmean(fmri_outlier))/np.nanstd(fmri_outlier)
+        physio_standardized =physio_outlier# (physio_outlier - np.nanmean(physio_outlier) )/ np.nanstd(physio_outlier)
+        fmri_standardized = fmri_outlier#(fmri_outlier - np.nanmean(fmri_outlier))/np.nanstd(fmri_outlier)
         total_length = len(fmri_standardized)
-        fmri_shave = fmri_standardized[6:]
-        physio_shave= physio_standardized[6:total_length] 
-        tvec = np.arange(0, len(physio_shave) / Fs, 1/Fs)
-        print(f"tvec: {len(tvec)}, physio:{physio_shave.shape}, fmri:{fmri_shave.shape}")
+        #fmri_shave = fmri_standardized[6:]
+        #physio_shave= physio_standardized[6:total_length] 
+        #tvec = np.arange(0, len(physio_shave) / Fs, 1/Fs)
+        #print(f"tvec: {len(tvec)}, physio:{physio_shave.shape}, fmri:{fmri_shave.shape}")
         from scipy.interpolate import interp1d
         # mean_data1 = np.nanmean(physio_standardized)
         # mean_data2 = np.nanmean(fmri_standardized)
@@ -271,20 +262,22 @@ for i, physio_fname in enumerate(physio_flist):
         # extract stimuli time from onset values
         event_stimuli_start = converted_df_meta['event_stimuli']['start']
         event_stimuli_stop =  converted_df_meta['event_stimuli']['stop']
-        padding_seconds = 2  # seconds
+        padding_seconds = 5  # seconds
+        print(event_stimuli_start)
         padding_samples = padding_seconds * fmri_samplingrate  # Convert seconds to samples based on sampling rate
 
-        beh_meta = pd.read_csv(join('/Volumes/spacetop_projects_cue/analysis/physio/nobaseline/physio01_SCL',sub, ses, f"{sub}_{ses}_{run}_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-False_physio-scl.csv" ))
+        beh_meta = pd.read_csv(join(physio_dir,sub, ses, f"{sub}_{ses}_{run}_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-False_physio-scl.csv" ))
 
-#        beh_meta = pd.read_csv(join()'/Volumes/spacetop_projects_cue/analysis/physio/physio01_SCL_25s/sub-0081/ses-04/sub-0081_ses-04_run-03_runtype-pain_epochstart--3_epochend-20_physio-scl.csv')
 
 # extract physio and fmri data based on onset time
-        data1 = physio_shave.squeeze()
-        data2 = fmri_shave.squeeze()
+        #data1 = physio_shave.squeeze()
+        #data2 = fmri_shave.squeeze()
         physio_stim = []
         fmri_stim = []
 
-
+        data1 = physio_standardized.squeeze()
+        data2 = fmri_standardized.squeeze()
+        print(type(data1))
         for i, (start, stop ) in enumerate(zip(event_stimuli_start, event_stimuli_stop)):
             # start_index = max(0, int(start) - padding_samples)
             # stop_index = min(len(data1) - 1, np.round(stop)  + padding_samples)
@@ -319,7 +312,8 @@ for i, physio_fname in enumerate(physio_flist):
             ax1.set_title('raw signals')
 
             # 4-2.B:  Compute and plot PSD ______________________________
-            ws = len(physio_stim[i]) // 2
+            ws = 20 #len(physio_stim[i]) // 2
+            #ws = int(Fs * 15)
             window = hann(ws)
             noverlap = ws // 2
             nfft = len(tvec)
@@ -342,8 +336,9 @@ for i, physio_fname in enumerate(physio_flist):
             ax3.set_title('cross-spectrum')
 
             # 4-2.D: Compute and plot cross-correlation
-            maxlags = len(physio_stim[i]) // 2#int(Fs * 30)
+            maxlags = 20#len(physio_stim[i]) // 2#int(Fs * 30)
             acf = correlate(physio_stim[i], fmri_stim[i], mode='full', method='auto') # matlab: xcorr
+            #maxlags = int(Fs * 30)
             # acf /= len(data1)  # Normalizing
             norm_factor = np.sqrt(np.sum(physio_stim[i]**2) * np.sum(fmri_stim[i]**2))
             ccf = acf / norm_factor
@@ -373,8 +368,8 @@ for i, physio_fname in enumerate(physio_flist):
             plt.tight_layout()
             sns.despine()
             plt.show()
-            # fig.savefig(join(save_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_roi-{roi}_xcorr-fmri-physio.png"))
-            # plt.close(fig)
+            fig.savefig(join(save_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_roi-{roi_ind}_trial-{i}_xcorr-fmri-physio.png"))
+            plt.close(fig)
             # calculate xcorr and save in dataframe _________________________
             # Slicing acf and lags for the plot range
             acf_sliced = ccf[len(ccf)//2-maxlags:len(ccf)//2+maxlags+1]
@@ -391,8 +386,8 @@ for i, physio_fname in enumerate(physio_flist):
                 'sub': sub,
                 'ses': ses,
                 'run': run,
-                'roi': roi,
-                'index': i,  # Assuming 'i' is an index, renamed to avoid confusion
+                'roi': roi_ind,
+                'trial_index': i,  # Assuming 'i' is an index, renamed to avoid confusion
                 'max_acf_value': max_acf_value,
                 'max_lag_time': max_lag_time, 
                 'cuetype':beh_meta.param_cue_type[i],
@@ -400,6 +395,6 @@ for i, physio_fname in enumerate(physio_flist):
             })
     roi_df = pd.DataFrame(roi_data)
     save_fname = join(save_top_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_xcorr-fmri-physio.tsv")
-    roi_df.to_csv(save_fname,sep='\t')
+    roi_df.to_csv(save_fname,sep='\t',index=False)
 plt.close('all')
 print("complete!")
