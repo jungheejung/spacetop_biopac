@@ -87,7 +87,7 @@ def interpolate_data(data):
 
 
 # %% 1. glob physio data _______________________________________________________
-physio_flist = glob.glob(join(physio_dir, '**', '{sub}_ses-*_run-*_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-False_samplingrate-25_physio-eda.tsv'))
+physio_flist = glob.glob(join(physio_dir, '**', '{sub}_ses-*_run-*_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-False_samplingrate-25_physio-eda.tsv'),recursive=True)
 
 # %%
 for i, physio_fname in enumerate(physio_flist):
