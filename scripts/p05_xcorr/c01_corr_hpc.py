@@ -87,13 +87,13 @@ def interpolate_data(data):
     return interp_func(time_points)
 print(physio_dir)
 # %% 1. glob physio data _______________________________________________________
-physio_flist = glob.glob(join(physio_dir, '**', f'{sub}_ses-*_run-*_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-False_samplingrate-25_physio-eda.txt'),recursive=True)
+physio_flist = glob.glob(join(physio_dir, '**', f'{sub}_ses-*_run-*_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-False_samplingrate-25_physio-eda.tsv'),recursive=True)
 print(physio_flist)
 # %%
 for i, physio_fname in enumerate(physio_flist):
 
     # 2. Extract bids info _____________________________________________________
-    matches = re.search(r"sub-(\d+)/ses-(\d+)/.*_run-(\d+)-", physio_fname)
+    matches = re.search(r"sub-(\d+)/ses-(\d+)/.*_run-(\d+)", physio_fname)
     if matches:
         sub = f"sub-{matches.group(1)}"
         ses = f"ses-{matches.group(2)}"
@@ -199,9 +199,9 @@ for i, physio_fname in enumerate(physio_flist):
     # 4-1. create dataframe to store ROI data
     print(f"step 4: calculate xcorr _____________")
     roi_df = pd.DataFrame(index=range(time_series.shape[1]), columns=['sub', 'ses', 'run', 'roi', 'Maximum Correlation Value', 'Time Lag (s)'])
-    for roi in range(time_series.shape[1]):
+    for roi_ind in range(time_series.shape[1]):
         
-        roi = time_series.T[roi]
+        roi = time_series.T[roi_ind]
         # remove outlier _______________________________________________________
         fmri_outlier = winsorize_mad(roi, threshold=7)
         physio_outlier = winsorize_mad(physio_tr, threshold=7)
@@ -297,7 +297,7 @@ for i, physio_fname in enumerate(physio_flist):
         plt.tight_layout()
         sns.despine()
         # plt.show()
-        fig.savefig(join(save_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_roi-{roi}_xcorr-fmri-physio.png"))
+        fig.savefig(join(save_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_roi-{roi_ind}_xcorr-fmri-physio.png"))
         plt.close(fig)
 
 
@@ -313,7 +313,7 @@ for i, physio_fname in enumerate(physio_flist):
         max_lag_time = lags_sliced[max_acf_index]
 
         # Create a DataFrame to store these values _____________________________
-        roi_df.iloc[roi] = [sub, ses, run, roi, max_acf_value, max_lag_time]
+        roi_df.iloc[roi_ind] = [sub, ses, run, roi_ind, max_acf_value, max_lag_time]
         save_fname = join(save_top_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_xcorr-fmri-physio.tsv")
         roi_df.to_csv(save_fname,sep='\t')
 
