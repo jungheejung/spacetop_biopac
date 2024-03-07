@@ -60,6 +60,7 @@ runtype = args.runtype
 sub_folders = next(os.walk(physio_dir))[1]
 sub_list = [i for i in sorted(sub_folders) if i.startswith('sub-')]
 sub = sub_list[slurm_id]#f'sub-{sub_list[slurm_id]:04d}'
+print(sub)
 save_dir = join(save_top_dir, sub)
 Path(save_dir).mkdir(parents=True, exist_ok=True)
 # physio_dir = '/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop_data/physio/physio03_bids/task-cue'
@@ -84,11 +85,10 @@ def interpolate_data(data):
     valid = ~np.isnan(data)  # Mask of valid (non-NaN) data points
     interp_func = interp1d(time_points[valid], data[valid], kind='linear', fill_value="extrapolate")
     return interp_func(time_points)
-
-
+print(physio_dir)
 # %% 1. glob physio data _______________________________________________________
-physio_flist = glob.glob(join(physio_dir, '**', '{sub}_ses-*_run-*_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-False_samplingrate-25_physio-eda.tsv'),recursive=True)
-
+physio_flist = glob.glob(join(physio_dir, '**', f'{sub}_ses-*_run-*_runtype-{runtype}_epochstart--3_epochend-20_baselinecorrect-False_samplingrate-25_physio-eda.txt'),recursive=True)
+print(physio_flist)
 # %%
 for i, physio_fname in enumerate(physio_flist):
 
