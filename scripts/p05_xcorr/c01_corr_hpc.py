@@ -242,7 +242,8 @@ for i, physio_fname in enumerate(physio_flist):
 
 
         # 4-2.B:  Compute and plot PSD _________________________________________
-        ws = int(Fs * 15)
+        cross_corr_window = 9
+        ws = int(Fs * cross_corr_window)
         window = hann(ws)
         noverlap = ws // 2
         nfft = len(tvec)
@@ -267,7 +268,7 @@ for i, physio_fname in enumerate(physio_flist):
 
 
         # 4-2.D: Compute and plot cross-correlation ____________________________
-        maxlags = int(Fs * 15)
+        maxlags = int(Fs * cross_corr_window)
         acf = correlate(data1, data2, mode='full', method='auto') # matlab: xcorr
         norm_factor = np.sqrt(np.sum(data1**2) * np.sum(data2**2))
         ccf = acf / norm_factor
