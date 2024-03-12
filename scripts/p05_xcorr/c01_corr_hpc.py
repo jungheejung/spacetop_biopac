@@ -69,15 +69,14 @@ Path(save_dir).mkdir(parents=True, exist_ok=True)
 # fmriprep_dir = '/Users/h/Documents/projects_local/sandbox/fmriprep_bold'
 # save_dir = '/Users/h/Documents/projects_local/sandbox'
 # runtyp = 'pain'
-def winsorize_mad(data, threshold=3.5):
-    winsorized_data = data
+def winsorize_mad(data, threshold):
+    # winsorized_data = data
     median = np.median(data)
     mad = np.median(np.abs(data - median))
     threshold_value = threshold * mad
-    winsorized_data[winsorized_data < -threshold_value] = np.nan
-    winsorized_data[winsorized_data > threshold_value] = np.nan
-    # winsorized_data = np.clip(data, median - threshold_value, median + threshold_value)
-    return winsorized_data
+    data[data < median-threshold_value] = np.nan
+    data[data > median+threshold_value] = np.nan
+    return data
 
 
 def interpolate_data(data):
@@ -111,7 +110,7 @@ for i, physio_fname in enumerate(physio_flist):
     dest_samplingrate = 1/TR
     physio_tr = nk.signal_resample(
                 df['physio_eda'].to_numpy(),  method='interpolation', 
-                sampling_rate=source_samplingrate, 
+                sampling_rate=2000, 
                 desired_sampling_rate=dest_samplingrate)
 
 
@@ -205,13 +204,13 @@ for i, physio_fname in enumerate(physio_flist):
         # remove outlier _______________________________________________________
         fmri_outlier = winsorize_mad(roi, threshold=7)
         physio_outlier = winsorize_mad(physio_tr, threshold=7)
-
+        physio_interpolate = interpolate_data(physio_outlier)
 
         # 4-2. plot and save ___________________________________________________
         Fs = 1/TR #1/TR
         
-        physio_standardized = physio_outlier - np.nanmean(physio_outlier)/np.nanstd(physio_outlier)
-        fmri_standardized = fmri_outlier - np.nanmean(fmri_outlier)/np.nanstd(fmri_outlier)
+        physio_standardized =( physio_outlier - np.nanmean(physio_outlier))/np.nanstd(physio_outlier)
+        fmri_standardized = (fmri_outlier - np.nanmean(fmri_outlier))/np.nanstd(fmri_outlier)
         total_length = len(fmri_standardized)
         fmri_standardized = fmri_standardized[6:]
         physio_standardized = physio_standardized[6:total_length] 
