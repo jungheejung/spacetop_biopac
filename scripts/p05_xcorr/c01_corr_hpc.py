@@ -110,7 +110,7 @@ for i, physio_fname in enumerate(physio_flist):
     dest_samplingrate = 1/TR
     physio_tr = nk.signal_resample(
                 df['physio_eda'].to_numpy(),  method='interpolation', 
-                sampling_rate=2000, 
+                sampling_rate=source_samplingrate, 
                 desired_sampling_rate=dest_samplingrate)
 
 
