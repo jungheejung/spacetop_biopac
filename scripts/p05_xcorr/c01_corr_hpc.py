@@ -209,7 +209,7 @@ for i, physio_fname in enumerate(physio_flist):
         # 4-2. plot and save ___________________________________________________
         Fs = 1/TR #1/TR
         
-        physio_standardized =( physio_outlier - np.nanmean(physio_outlier))/np.nanstd(physio_outlier)
+        physio_standardized = (physio_outlier - np.nanmean(physio_outlier)) /np.nanstd(physio_outlier)
         fmri_standardized = (fmri_outlier - np.nanmean(fmri_outlier))/np.nanstd(fmri_outlier)
         total_length = len(fmri_standardized)
         fmri_standardized = fmri_standardized[6:]
@@ -218,8 +218,8 @@ for i, physio_fname in enumerate(physio_flist):
         print(f"tvec: {len(tvec)}, physio:{physio_standardized.shape}, fmri:{fmri_standardized.shape}")
 
         # Interpolate missing values
-        data1 = physio_standardized #interpolate_data(physio_standardized)
-        data2 = fmri_standardized# interpolate_data(fmri_standardized)
+        data1 = interpolate_data(physio_standardized)
+        data2 = interpolate_data(fmri_standardized)
 
 
         # 4-2. plot parameters _________________________________________________
