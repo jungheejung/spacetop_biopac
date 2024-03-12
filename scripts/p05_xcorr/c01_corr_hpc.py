@@ -311,9 +311,10 @@ for i, physio_fname in enumerate(physio_flist):
         max_acf_value = np.max(absolute_values)
         max_acf_index = np.argmax(absolute_values)
         max_lag_time = lags_sliced[max_acf_index]
+        max_acf_raw = acf_sliced[max_acf_index]
 
         # Create a DataFrame to store these values _____________________________
-        roi_df.iloc[roi_ind] = [sub, ses, run, roi_ind, max_acf_value, max_lag_time]
+        roi_df.iloc[roi] = [sub, ses, run, roi, max_acf_raw, max_lag_time]
         save_fname = join(save_top_dir, f"{sub}_{ses}_{run}_runtype-{runtype}_xcorr-fmri-physio.tsv")
         roi_df.to_csv(save_fname,sep='\t')
 
