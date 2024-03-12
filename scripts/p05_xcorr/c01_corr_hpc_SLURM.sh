@@ -14,11 +14,12 @@ conda activate biopac
 echo "SLURMSARRAY: " ${SLURM_ARRAY_TASK_ID}
 ID=$((SLURM_ARRAY_TASK_ID-1))
 MAINDIR='/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue'
-PHYSIO="/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop_data/physio/physio03_bids/task-cue"
+PHYSIO="/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio/nobaseline/physio01_SCL"
 FMRIPREP="/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop_data/derivatives/fmriprep/results/fmriprep/"
-SAVE="/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio/xcorr_noZ"
+SAVE="/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/analysis/physio/nobaseline/xcorr"
 
-python ${PWD}/c01_corr_hpc.py \
+
+python /dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_physio/scripts/p05_xcorr/c01_corr_hpc.py \
 --slurm-id ${ID} \
 --physio-dir ${PHYSIO} \
 --fmriprep-dir ${FMRIPREP} \
