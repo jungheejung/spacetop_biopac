@@ -351,7 +351,7 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     X_r = np.array(normalized_Xmatrix).T
     Y_r = np.array(y).reshape(-1,1)
     reg = linear_model.LinearRegression().fit(X_r, Y_r)
-    reg.score(X_r, Y_r)
+    modelfit = reg.score(X_r, Y_r)
     print(f"coefficient: {reg.coef_[0][0]}, {reg.coef_[0][1]}, {reg.coef_[0][2]}, \
           {reg.coef_[0][3]}, {reg.coef_[0][4]}, {reg.coef_[0][5]}, \
           {reg.coef_[0][6]}, {reg.coef_[0][7]}, \
@@ -366,7 +366,7 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     betadf.at[ind, cue_stim_cond[6]] = reg.coef_[0][6]
     betadf.at[ind, cue_stim_cond[7]] = reg.coef_[0][7]
     betadf.at[ind, 'intercept'] = reg.intercept_[0]
-
+    betadf['modelfit'] = modelfit
     # visualizing model fit results ____________________________________________
     # convolve onset boxcars, multiply it with model fitted coefficients
     total_regressor = []

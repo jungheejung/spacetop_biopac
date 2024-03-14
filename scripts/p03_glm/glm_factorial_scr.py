@@ -334,7 +334,7 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     X_r = np.array(normalized_Xmatrix).T
     Y_r = np.array(y).reshape(-1,1)
     reg = linear_model.LinearRegression().fit(X_r, Y_r)
-    reg.score(X_r, Y_r)
+    modelfit = reg.score(X_r, Y_r)
     print(f"coefficient: {reg.coef_[0][0]}, {reg.coef_[0][1]}, {reg.coef_[0][2]}, \
           {reg.coef_[0][3]}, {reg.coef_[0][4]}, {reg.coef_[0][5]}, \
           intercept: {reg.intercept_[0]}")
@@ -347,7 +347,7 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     betadf.at[ind, cond_list[5]] = reg.coef_[0][5]
 
     betadf.at[ind, 'intercept'] = reg.intercept_[0]
-
+    betadf['modelfit'] = modelfit
     # visualizing model fit results ____________________________________________
     # convolve onset boxcars, multiply it with model fitted coefficients
     total_regressor = []
@@ -429,6 +429,7 @@ betadf['sub']= betadf['filename'].str.extract(r'(sub-\d+)')
 betadf['ses'] = betadf['filename'].str.extract(r'(ses-\d+)')
 betadf['run'] = betadf['filename'].str.extract(r'(run-\d+)')
 betadf['runtype'] = betadf['filename'].str.extract(r'runtype-(\w+)_')
+
 
 betadf.to_csv(join(save_dir, f'glm-factorial_task-{task}_scr.tsv'), sep='\t')
 # TODO: save metadata in json
