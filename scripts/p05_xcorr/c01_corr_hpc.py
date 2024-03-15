@@ -17,6 +17,7 @@ from neuromaps.transforms import fsaverage_to_fslr
 # extract time series
 from nilearn.maskers import NiftiMapsMasker,  NiftiLabelsMasker
 from nilearn import datasets
+from nilearn import image
 from pathlib import Path
 import matplotlib.pyplot as plt
 from scipy.signal import welch, csd, correlate, coherence
@@ -24,6 +25,7 @@ from scipy.signal.windows import hann
 import matplotlib.gridspec as gridspec
 import seaborn as sns
 from scipy.interpolate import interp1d
+from neuromaps import parcellate
 # %%
 __author__ = "Heejung Jung"
 __copyright__ = "Spatial Topology Project"
@@ -131,10 +133,19 @@ for i, physio_fname in enumerate(physio_flist):
     #                            standardize=True,
     #                            high_pass=1/128,
     #                            t_r=0.46)
-    masker = NiftiLabelsMasker(labels_img=join(mask_dir, 'CANLab2023_MNI152NLin2009cAsym_fine_2mm.nii'),
-                               standardize=False,
-                               high_pass=1/128,
-                               t_r=0.46)    
+    atlas_fname = join(mask_dir, 'CANLab2023_MNI152NLin2009cAsym_coarse_2mm.nii.gz')
+
+    # parc = parcellate.Parcellater(parcellation=image.load_img(atlas_fname), 
+    #                    space='MNI152',
+    #                    resampling_target='parcellation')
+
+    # from neuromaps import parcellate
+
+    masker = NiftiLabelsMasker(labels_img=image.load_img(atlas_fname),
+                            standardize=True,
+                            high_pass=1/128,
+                            t_r=0.46, 
+                            resampling_target="labels")
 
     # 3-3. subset confounds ____________________________________________________
     print(f"3-3 confound subset from fmriprep")
@@ -184,6 +195,7 @@ for i, physio_fname in enumerate(physio_flist):
 
     print("grabbed all the confounds and fmri data")
     print(subset_confounds.head())
+    # singletrial_parc = parc.fit_transform(fmri_fname, 'MNI152')
     time_series = masker.fit_transform(fmri_fname, confounds=subset_confounds.fillna(subset_confounds.median()))
 
     # 3-4. resample physio to fmri TR __________________________________________
