@@ -45,6 +45,9 @@ parser.add_argument("--fmriprep-dir", type=str,
 parser.add_argument("--save-dir", 
 type=str,
                     help="directory for saving Xcorr data")
+parser.add_argument("--mask-dir", 
+type=str,
+                    help="directory for atlas")
 parser.add_argument("-r", "--runtype",
                     choices=['pain','vicarious','cognitive','all'], 
                     help="specify runtype name (e.g. pain, cognitive, variance)")
@@ -55,6 +58,7 @@ slurm_id = args.slurm_id # e.g. 1, 2
 physio_dir = args.physio_dir
 fmriprep_dir = args.fmriprep_dir
 save_top_dir = args.save_dir
+mask_dir = args.mask_dir
 runtype = args.runtype
 # %% 0. parameters
 sub_folders = next(os.walk(physio_dir))[1]
@@ -121,13 +125,16 @@ for i, physio_fname in enumerate(physio_flist):
 
     confounds_fname = join(fmriprep_dir, sub, ses, 'func', f'{sub}_{ses}_task-social_acq-mb8_run-{int(matches.group(3))}_desc-confounds_timeseries.tsv')
 
-    schaefer = datasets.fetch_atlas_schaefer_2018(n_rois=400, resolution_mm=2, data_dir=save_top_dir)
+    # schaefer = datasets.fetch_atlas_schaefer_2018(n_rois=400, resolution_mm=2, data_dir=save_top_dir)
 
-    masker = NiftiLabelsMasker(labels_img=join(save_top_dir, 'schaefer_2018', 'Schaefer2018_400Parcels_7Networks_order_FSLMNI152_2mm.nii.gz'),
-                               standardize=True,
+    # masker = NiftiLabelsMasker(labels_img=join(save_top_dir, 'schaefer_2018', 'Schaefer2018_400Parcels_7Networks_order_FSLMNI152_2mm.nii.gz'),
+    #                            standardize=True,
+    #                            high_pass=1/128,
+    #                            t_r=0.46)
+    masker = NiftiLabelsMasker(labels_img=join(mask_dir, 'CANLab2023_MNI152NLin2009cAsym_fine_2mm.nii'),
+                               standardize=False,
                                high_pass=1/128,
-                               t_r=0.46)
-    
+                               t_r=0.46)    
 
     # 3-3. subset confounds ____________________________________________________
     print(f"3-3 confound subset from fmriprep")
