@@ -172,8 +172,9 @@ save_dir = '/Volumes/spacetop_projects_cue/analysis/physio/nobaseline/glm_single
 # scl_dir = '/Users/h/Documents/projects_local/sandbox/physioresults/physio01_SCL' 
 # save_dir = '/Users/h/Desktop'      
 
-
-qc_fname = '/Users/h/Documents/projects_local/spacetop_biopac/data/QC_EDA_new.csv'
+# current_directory = Path.cwd()
+main_dir = Path.cwd().parents[1]
+qc_fname = Path(main_dir, 'data', 'QC_EDA_new.csv')#'/Users/h/Documents/projects_local/spacetop_biopac/data/QC_EDA_new.csv'
 qc = pd.read_csv(qc_fname)
 TR = 0.46
 task = 'pain'
