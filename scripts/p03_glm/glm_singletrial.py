@@ -75,7 +75,7 @@ def merge_qc_scl(qc_fname, scl_flist):
     qc.columns = ['sub', 'ses', 'run', 'task']
     
     scl_file = pd.DataFrame({'filename': scl_flist})
-    scl_file[['sub', 'ses', 'run', 'task']] = scl_file['filename'].str.extract(r'sub-(\d+)_ses-(\d+)_run-(\d+)_runtype-(\w+)')
+    scl_file[['sub', 'ses', 'run', 'task']] = scl_file['filename'].str.extract(r'sub-(\d+)_ses-(\d+)_run-(\d+)_runtype-(\w+)_')
     scl_file = scl_file.astype({'sub': int, 'ses': int, 'run': int})
     
     return pd.merge(scl_file, qc, on=['sub', 'ses', 'run', 'task'], how='inner')
