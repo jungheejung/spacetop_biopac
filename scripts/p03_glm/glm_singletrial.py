@@ -239,7 +239,7 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     boxheight = (np.max(winsor_physio) - np.min(winsor_physio)) * 0.25
     plt.xlim(0, total_time)
     y_min, y_max = plt.ylim()
-    plt.plot(x_seconds, y, '#2F2f2f', label='SCR signal',alpha=1, linewidth=.5) #signal
+    plt.plot(x_seconds, y.iloc[:, 0], '#2F2f2f', label='SCR signal',alpha=1, linewidth=.5) #signal
     boxcar_height = np.max(boxcar_summed)
     plt.fill_between(x_seconds,  
                      y_min, y_max, where=boxcar_summed > 0, 
@@ -345,7 +345,7 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     for beta_ind in range(len(predictedXmatrix)):#cond_ind, cond_name in enumerate(trial_list):
         plt.plot(x_seconds, predictedXmatrix[beta_ind].T, 
                  linestyle=(0, (1, 1)), linewidth=2) #, label=list(color.keys())[cond_ind])
-    plt.plot(x_seconds, y, '#2F2f2f', label='SCR signal',alpha=1, linewidth=.5) #signal
+    plt.plot(x_seconds, y.iloc[:, 0], '#2F2f2f', label='SCR signal',alpha=1, linewidth=.5) #signal
     y_min, y_max = plt.ylim()
     boxcar_height = np.max(boxcar_summed)
     plt.fill_between(x_seconds,  
