@@ -51,7 +51,7 @@ def winsorize_mad(data, threshold=3.5):
     # winsorized_data[winsorized_data > threshold_value] = np.nan
     # lower_proportion = np.sum(data < lower_bound) / len(data)
     # upper_proportion = np.sum(data > upper_bound) / len(data)
-    wz = Winsorizer(capping_method='mad', tail='both', fold=threshold)
+    wz = Winsorizer(capping_method='iqr', tail='both', fold=threshold)
     # wz = Winsorizer(capping_method='iqr', tail='both', fold=threshold)
     return wz.fit_transform(data)
 
@@ -118,7 +118,8 @@ scl_flist = sorted(glob.glob(join(scl_dir,'**', f'*{task}_epochstart--3_epochend
                              recursive=True))
 
 # create empty dataframe _______________________________________________________
-df_column = ['filename', 'sub', 'ses', 'run', 'runtype', 'intercept', 'beta', 'singletrial_name', 'singletrial_index']
+df_column = ['filename', 'sub', 'ses', 'run', 'runtype', 'cuetype', 'stimtype',
+             'singletrial_name', 'singletrial_index','intercept', 'beta','modelfit']
 all_dfs = []
 Path(save_dir).mkdir(parents=True, exist_ok=True)
 
@@ -270,7 +271,7 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
         betadf.at[beta_ind, 'beta'] = reg.coef_[0][beta_ind]
         betadf.at[beta_ind, 'singletrial_index'] = trial_list[beta_ind]
     betadf['singletrial_name'] = condition_name_list
-    betadf.at[beta_ind, 'intercept'] = reg.intercept_[0]
+    betadf.at['intercept'] = reg.intercept_[0]
     betadf['modelfit'] = modelfit
     # visualizing model fit results ____________________________________________
     # convolve onset boxcars, multiply it with model fitted coefficients
@@ -372,6 +373,8 @@ final_df['sub']= final_df['filename'].str.extract(r'(sub-\d+)')
 final_df['ses'] = final_df['filename'].str.extract(r'(ses-\d+)')
 final_df['run'] = final_df['filename'].str.extract(r'(run-\d+)')
 final_df['runtype'] = final_df['filename'].str.extract(r'runtype-(\w+)_')
+final_df['cuetype'] = final_df['singletrial_name'].str.extract(r'cue-(\w+)_')
+final_df['stimtype'] = final_df['singletrial_name'].str.extract(r'stim-(\w+)')
 
 final_df.to_csv(join(save_dir, f'glm-singletrial_task-{task}_scr.tsv'), sep='\t')
 # TODO: save metadata in json
