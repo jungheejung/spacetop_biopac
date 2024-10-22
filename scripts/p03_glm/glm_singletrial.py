@@ -238,7 +238,7 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     # winsor_physio_interp = interpolate_data(winsor_physio)
 
     # fetch SCR curve __________________________________________________________
-    pspm_scr = pd.read_csv('/Users/h/Documents/projects_local/spacetop_biopac/scripts/p03_glm/pspm-scrf_td-25.txt', sep='\t')
+    pspm_scr = pd.read_csv(Path(main_dir, 'scripts', 'p03_glm', 'pspm-scrf_td-25.txt'), sep='\t')
     scr = pspm_scr.squeeze()
 
 
@@ -278,20 +278,15 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     for trial_index in range(len(metadf)):  # Iterate over each trial
         trial_str = f"trial-{trial_index:03d}"  # Format trial index
         cue_type = metadf.loc[trial_index, 'param_cue_type']  # Get the cue type for the trial
-        # stim_type = metadf.loc[trial_index, 'param_stimulus_type']  # Get the stimulus type for the trial
-        
-        # if pd.notna(stim_type):  # If there is a stimulus (stimulus present)
-        condition_name = f"epoch_cue_{trial_str}_cue-{cue_type}_stim-na"
-        # else:  # If there is no stimulus (cue-only trial)
-            # condition_name = f"epoch-cue_{trial_str}_cue-{cue_type}_stim-na"
+        condition_name = f"epoch-cue_{trial_str}_cue-{cue_type.replace('_cue', '')}_stim-na"
         signal  = np.zeros(len(winsor_physio)) 
-        # cond_index = metadf.loc[metadf['condition'] == cond].index.values
-        event_start_time = np.array(js['event_cue']['start'])[trial_index]/samplingrate
-        event_stop_time = np.array(js['event_cue']['stop'])[trial_index]/samplingrate
-        for start, stop in zip(event_start_time, event_stop_time):
-            start_index = int((start + shift_time) * data_points_per_second)
-            stop_index = int((stop + shift_time) * data_points_per_second)
-            signal[start_index:stop_index] = 1#stim_dict[cond]
+
+        event_start_time = np.round(np.array(js['event_cue']['start'])[trial_index] / samplingrate)
+        event_stop_time = np.round(np.array(js['event_cue']['stop'])[trial_index] / samplingrate)
+        start_index = int((event_start_time + shift_time) * data_points_per_second)
+        stop_index = int((event_stop_time + shift_time) * data_points_per_second)
+        signal[start_index:stop_index] = 1 
+
         # Convolve the signal with the scr
         convolved_signal = convolve(signal, scr, mode='full')[:len(signal)]
         total_regressor.append(convolved_signal)
@@ -302,26 +297,23 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
         trial_str = f"trial-{trial_index:03d}"  # Format trial index
         cue_type = metadf.loc[trial_index, 'param_cue_type']  # Get the cue type for the trial
         stim_type = metadf.loc[trial_index, 'param_stimulus_type']  # Get the stimulus type for the trial
-        
-        # if pd.notna(stim_type):  # If there is a stimulus (stimulus present)
-        condition_name = f"epoch_stim_{trial_str}_cue-{cue_type}_stim-{stim_type}"
-        # else:  # If there is no stimulus (cue-only trial)
-            # condition_name = f"epoch-cue_{trial_str}_cue-{cue_type}_stim-na"
+        condition_name = f"epoch-stim_{trial_str}_cue-{cue_type.replace('_cue', '')}_stim-{stim_type.replace('_stim', '')}"
+
         signal  = np.zeros(len(winsor_physio)) 
-        # cond_index = metadf.loc[metadf['condition'] == cond].index.values
-        event_start_time = np.array(js['event_stimuli']['start'])[trial_index]/samplingrate
-        event_stop_time = np.array(js['event_stimuli']['stop'])[trial_index]/samplingrate
-        for start, stop in zip(event_start_time, event_stop_time):
-            start_index = int((start + shift_time) * data_points_per_second)
-            stop_index = int((stop + shift_time) * data_points_per_second)
-            signal[start_index:stop_index] = 1#stim_dict[cond]
+        event_start_time = np.round(np.array(js['event_stimuli']['start'])[trial_index]/samplingrate)
+        event_stop_time = np.round(np.array(js['event_stimuli']['stop'])[trial_index]/samplingrate)
+
+        start_index = int((event_start_time + shift_time) * data_points_per_second)
+        stop_index = int((event_stop_time + shift_time) * data_points_per_second)
+        signal[start_index:stop_index] = 1 
+
         # Convolve the signal with the scr
         convolved_signal = convolve(signal, scr, mode='full')[:len(signal)]
         total_regressor.append(convolved_signal)
         boxcar.append(signal)        
         # Proceed to define signals and process further
         # ...
-        condition_name_list.append(condition_name
+        condition_name_list.append(condition_name)
 
 
 
@@ -425,6 +417,7 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
     total_regressor = []
     boxcar = []
 
+# TODO: 10/21/2024. Adapt code
     for cond in ['high_cue', 'low_cue']:
         signal  = np.zeros(len(winsor_physio)) 
         cond_index = metadf.loc[metadf['param_cue_type'] == cond].index.values
