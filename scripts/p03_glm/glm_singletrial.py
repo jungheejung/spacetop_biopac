@@ -271,7 +271,7 @@ for ind, scl_fpath in enumerate(sorted(filtered_list)):
         betadf.at[beta_ind, 'beta'] = reg.coef_[0][beta_ind]
         betadf.at[beta_ind, 'singletrial_index'] = trial_list[beta_ind]
     betadf['singletrial_name'] = condition_name_list
-    betadf.at['intercept'] = reg.intercept_[0]
+    betadf['intercept'] = reg.intercept_[0]
     betadf['modelfit'] = modelfit
     # visualizing model fit results ____________________________________________
     # convolve onset boxcars, multiply it with model fitted coefficients
