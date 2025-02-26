@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Jun  8 16:25:14 2022
+
+@author: isabelneumann
+"""
+# SPACETOP NEUROKIT ANALYSES
+
+##############################################################################
+
+#%% Load packages
+import neurokit2 as nk
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+plt.rcParams['figure.figsize'] = [15, 5]  # Bigger images
+plt.rcParams['font.size']= 14
+
+##############################################################################
+
+#%% parameters 
+run_num = 2
+
+#%% Get data
+spacetop_data, spacetop_samplingrate = nk.read_acqknowledge('/Users/isabelneumann/Desktop/CANlab/Heejung/Neurokit/data/biopac_sub-0051-0053/sub-0051/ses-03/SOCIAL_spacetop_sub-0051_ses-03_task-social_ANISO.acq')
+print(spacetop_data.columns)
+bdf = pd.read_csv('/Users/isabelneumann/Desktop/CANlab/Heejung/Neurokit/data/behavioral_sub-0051-0053/sub-0051/ses-03/sub-0051_ses-03_task-social_run-02-pain_beh.csv')
+
+#############################################################################
+
+# ORGANIZE DATA
+#%% Organize data: trigger onsets
+mid_val = (np.max(spacetop_data['trigger']) - np.min(spacetop_data['trigger']))/2
+spacetop_data.loc[spacetop_data['trigger'] > mid_val, 'fmri_trigger'] = 5
+spacetop_data.loc[spacetop_data['trigger'] <= mid_val, 'fmri_trigger'] = 0
+
+start_df = spacetop_data[spacetop_data['fmri_trigger'] > spacetop_data['fmri_trigger'].shift(1)].index
+stop_df = spacetop_data[spacetop_data['fmri_trigger'] < spacetop_data['fmri_trigger'].shift(1)].index
+print(start_df)
+print(stop_df)
+
+#%% Organize data: transition
+df_transition = pd.DataFrame({
+                        'start_df': start_df, 
+                        'stop_df': stop_df
+                        })
+run_subset = spacetop_data[df_transition.start_df[run_num]: df_transition.stop_df[run_num]]
+run_df = run_subset.reset_index()
+
+#%% Organize data: start & end of condition 
+expect_start = run_df[run_df['expect'] > run_df['expect'].shift(1)]
+expect_end = run_df[run_df['expect'] < run_df['expect'].shift(1)]
+
+#%% Organize data: extract start & end for creating events
+expect_start_list = expect_start.index.tolist()
+print(expect_start_list)
+expect_end_list = expect_end.index.tolist()
+event_labels = [1,2,1,3,5,6,5,4,4,6,2,3] # muss man irgendwie in events reinkriegen 
+
+#%% Organize data: define events 
+expect_events = nk.events_create(event_onsets=expect_start_list, 
+                                 event_durations = 8000, # brauche ich die Länge überhaupt?
+                                 event_conditions=event_labels)
+print(expect_events)
+
+##############################################################################
+
+#PROCESS EDA 
+#%% Preprocess: filter EDA signal
+eda_signal = nk.signal_sanitize(run_df["Skin Conductance (EDA) - EDA100C-MRI"])
+
+eda_filters = nk.signal_filter(eda_signal, 
+                                sampling_rate=spacetop_samplingrate, 
+                                highcut=1, method="butterworth", order=4)
+
+#%% Test filters
+eda_filter_test = nk.signal_filter(eda_signal, 
+                                   sampling_rate=spacetop_samplingrate, 
+                                   highcut=3, method="butterworth", order=2)
+pl1 = plt.plot(eda_filters)
+plt.show(pl1)
+pl2 = plt.plot(run_df["Skin Conductance (EDA) - EDA100C-MRI"])
+plt.show(pl2)
+pl3 = plt.plot(eda_filter_test)
+plt.show(pl3)
+
+#%% Preprocess: divide EDA signal into phasic & tonic 
+eda_decomposed = nk.eda_phasic(nk.standardize(eda_filters), 
+                               sampling_rate=spacetop_samplingrate) 
+                                # method='highpass'
+
+#%% Find peaks
+eda_peaks, info = nk.eda_peaks(eda_decomposed["EDA_Phasic"].values,
+                               sampling_rate=spacetop_samplingrate, 
+                               method = "neurokit", amplitude_min = 0.02)  
+info["sampling_rate"] = spacetop_samplingrate
+
+#%% Store 
+signals = pd.DataFrame({"EDA_Raw": eda_signal, "EDA_Clean": eda_filters})
+signals_2 = pd.concat([signals, eda_decomposed, eda_peaks], axis=1) 
+
+######
+#%% Define epochs
+expect_epochs = nk.epochs_create(signals_2, 
+                                 expect_events, 
+                                 sampling_rate=spacetop_samplingrate, 
+                                 epochs_start=-1, epochs_end=8) # kann man auch end_list nehmen?
+plot_epochs_expect = nk.epochs_plot(expect_epochs)
+for epoch in expect_epochs.values():
+    nk.signal_plot(epoch[["EDA_Clean", "SCR_Height"]], 
+    title = epoch['Condition'].values[0],
+    standardize = True) 
+
+#%%
+eda_phasic = nk.eda_eventrelated(expect_epochs)
+eda_tonic = nk.eda_intervalrelated(expect_epochs)
+#plots
+
+###################################################################################
