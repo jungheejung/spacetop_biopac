@@ -12,9 +12,26 @@ ITI-mean offset, joint min-max scaling of the design, OLS + intercept).
     stim       6 stimulus regressors (3 stim x 2 cue)       == glm_factorial_scr.py
     cuestim    + high_cue, low_cue                           == glm_factorial_and_cue_scr.py
     allevents  + high_cue, low_cue, expectrating, actualrating   (fMRI-like)
+    singletrial
+               one heat regressor per trial only (design of the old
+               nobaseline/glm_singletrial table); one output row per trial
+    singletrial_allevents
+               one heat regressor per trial + high_cue, low_cue, expectrating,
+               actualrating as nuisance; one output row per trial, same columns as
+               the old nobaseline/glm_singletrial table
 
 In 'stim', cue/rating periods fall into the implicit baseline; in 'allevents'
 only the ITI does, as in the fMRI model.
+
+--outlier (default depends on --model):
+    trim_interp  values > 5 MAD from the run median -> NaN -> linear interpolation
+                 (manuscript condition GLM; default for stim/cuestim/allevents)
+    winsor_iqr   cap at Q1 - 5*IQR / Q3 + 5*IQR (feature-engine Winsorizer, as in the
+                 Oct 2024 glm_singletrial.py; default for singletrial / singletrial_allevents)
+Heat onsets are exact in every model (glm_singletrial.py rounded them to whole seconds).
+
+--plot saves two PNGs per run to <save-dir>/plots/<model>/: the signal with the
+convolved regressors, and the signal with the model fit.
 
 Each event is a boxcar over its recorded duration convolved with the PsPM SCRF.
 Per-run VIFs of the design are saved (vif_<regressor> columns); the SCRF is slow
@@ -22,6 +39,7 @@ and events are seconds apart, so check collinearity before interpreting betas.
 
 Usage:
     python glm_allevents_scr.py --scl-dir <physio01_SCL> --model allevents --save-dir <out>
+    python glm_allevents_scr.py --scl-dir <physio01_SCL> --model singletrial_allevents --save-dir <out> --plot
 """
 
 import os, glob, re, json, argparse, warnings
@@ -53,6 +71,16 @@ def winsorize_mad(data, threshold):
     data[data < median-threshold_value] = np.nan
     data[data > median+threshold_value] = np.nan
     return data
+
+def winsorize_iqr(pdf, fold=5):
+    """cap at Q1 - fold*IQR / Q3 + fold*IQR, as glm_singletrial.py (Oct 2024) did with
+    feature_engine's Winsorizer(capping_method='iqr'); pandas fallback applies the same rule"""
+    try:
+        from feature_engine.outliers import Winsorizer
+        return Winsorizer(capping_method='iqr', tail='both', fold=fold).fit_transform(pdf), 'feature_engine'
+    except ImportError:
+        q1, q3 = pdf.quantile(0.25), pdf.quantile(0.75)
+        return pdf.clip(lower=q1 - fold * (q3 - q1), upper=q3 + fold * (q3 - q1), axis=1), 'pandas'
 
 def interpolate_data(data):
     time_points = np.arange(len(data))
@@ -110,7 +138,11 @@ def vif(X):
 parser = argparse.ArgumentParser()
 parser.add_argument('--scl-dir', required=True)
 parser.add_argument('--save-dir', required=True)
-parser.add_argument('--model', default='allevents', choices=['stim', 'cuestim', 'allevents'])
+parser.add_argument('--model', default='allevents',
+                    choices=['stim', 'cuestim', 'allevents', 'singletrial', 'singletrial_allevents'])
+parser.add_argument('--outlier', choices=['trim_interp', 'winsor_iqr'],
+                    help='default: winsor_iqr for singletrial models, trim_interp otherwise')
+parser.add_argument('--plot', action='store_true', help='save 2 PNGs per run')
 parser.add_argument('--baselinecorrect', default='False', choices=['True', 'False'])
 parser.add_argument('--task', default='pain')
 parser.add_argument('--qc', default=join(HERE, '..', '..', 'data', 'QC_EDA_new.csv'))
@@ -119,6 +151,15 @@ args = parser.parse_args()
 
 scl_dir, save_dir, task = args.scl_dir, args.save_dir, args.task
 Path(save_dir).mkdir(parents=True, exist_ok=True)
+singletrial = args.model.startswith('singletrial')
+default_outlier = 'winsor_iqr' if singletrial else 'trim_interp'
+outlier = args.outlier or default_outlier
+if args.plot:
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    plot_dir = join(save_dir, 'plots', args.model)
+    Path(plot_dir).mkdir(parents=True, exist_ok=True)
 
 stim_list = ['high_stim-high_cue', 'high_stim-low_cue',
              'med_stim-high_cue', 'med_stim-low_cue',
@@ -126,7 +167,10 @@ stim_list = ['high_stim-high_cue', 'high_stim-low_cue',
 cue_list = ['high_cue', 'low_cue']
 reg_list = {'stim': stim_list,
             'cuestim': cue_list + stim_list,
-            'allevents': cue_list + ['expectrating'] + stim_list + ['actualrating']}[args.model]
+            'allevents': cue_list + ['expectrating'] + stim_list + ['actualrating'],
+            'singletrial': [],
+            'singletrial_allevents': cue_list + ['expectrating', 'actualrating']}[args.model]
+# singletrial models: reg_list holds the nuisance regressors; per-trial heat regressors are added per run
 samplingrate = 2000
 data_points_per_second = 25
 scr = pd.read_csv(args.scrf, sep='\t').squeeze()
@@ -136,13 +180,15 @@ pattern = f'*{task}_epochstart--3_epochend-20_baselinecorrect-{args.baselinecorr
 scl_flist = sorted(glob.glob(join(scl_dir, '**', pattern), recursive=True))
 merged_df = merge_qc_scl(args.qc, scl_flist)
 filtered_list = sorted(merged_df.filename)
-print(f"model={args.model}  regressors: {reg_list}")
+print(f"model={args.model}  outlier={outlier}  regressors: "
+      f"{(['heat trial x N'] if singletrial else []) + reg_list}")
 print(f"after QC 'include': {len(filtered_list)} runs / {merged_df['sub'].nunique()} subs")
 
 # %%----------------------------------------------------------------------------
 #                               glm estimation
 # ------------------------------------------------------------------------------
 rows, skipped = [], []
+winsor_impl = None
 for scl_fpath in filtered_list:
     basename = os.path.basename(scl_fpath)
     rundir = os.path.dirname(scl_fpath)
@@ -159,8 +205,12 @@ for scl_fpath in filtered_list:
         js = json.load(json_file)
 
     # remove outlier ___________________________________________________________
-    winsor_mad = winsorize_mad(pdf, threshold=5)
-    winsor_interp = interpolate_data(winsor_mad.to_numpy().flatten())
+    if outlier == 'trim_interp':
+        winsor_mad = winsorize_mad(pdf, threshold=5)
+        winsor_interp = interpolate_data(winsor_mad.to_numpy().flatten())
+    else:
+        capped, winsor_impl = winsorize_iqr(pdf, fold=5)
+        winsor_interp = np.asarray(capped, dtype=float).flatten()
 
     # run-SD scaling + ITI offset ______________________________________________
     # NOTE kept verbatim from glm_factorial_scr.py: the ITI windows use start/25
@@ -183,7 +233,15 @@ for scl_fpath in filtered_list:
     all_trials = np.arange(len(js['event_cue']['start']))
 
     # design ___________________________________________________________________
-    total_regressor = []
+    total_regressor, trial_names = [], []
+    if singletrial:
+        for t in range(len(metadf)):
+            cue_t = str(metadf.loc[t, 'param_cue_type']).replace('_cue', '')
+            stim_t = str(metadf.loc[t, 'param_stimulus_type']).replace('_stim', '')
+            trial_names.append((f"epoch-stim_trial-{t:03d}_cue-{cue_t}_stim-{stim_t}",
+                                f"trial-{t + 1:03d}", cue_t, stim_t))
+            total_regressor.append(event_regressor(js, 'event_stimuli', [t], n, scr,
+                                                   samplingrate, data_points_per_second))
     for reg in reg_list:
         if reg in stim_list:
             idx = metadf.loc[metadf['condition'] == reg].index.values
@@ -204,18 +262,72 @@ for scl_fpath in filtered_list:
     Y_r = np.array(winsor_physio).reshape(-1, 1)
     fit = linear_model.LinearRegression().fit(X_r, Y_r)
 
-    row = {'filename': basename, 'sub': sub, 'ses': ses, 'run': run, 'runtype': runtype,
-           'intercept': fit.intercept_[0]}
-    row.update({r: fit.coef_[0][k] for k, r in enumerate(reg_list)})
-    row['modelfit'] = fit.score(X_r, Y_r)
-    row.update({f'vif_{r}': v for r, v in zip(reg_list, vif(X_r))})
-    rows.append(row)
+    modelfit, vifs, coef = fit.score(X_r, Y_r), vif(X_r), fit.coef_[0]
+    if singletrial:
+        # one row per trial; columns as in the old nobaseline/glm_singletrial table
+        # (singletrial_name counts from trial-000, singletrial_index from trial-001)
+        nt = len(trial_names)
+        nuis = {f'nuisance_{r}': coef[nt + k] for k, r in enumerate(reg_list)}
+        for k, (name, index, cue_t, stim_t) in enumerate(trial_names):
+            rows.append({'filename': basename, 'sub': sub, 'ses': ses, 'run': run, 'runtype': runtype,
+                         'cuetype': cue_t, 'stimtype': stim_t, 'singletrial_name': name,
+                         'singletrial_index': index, 'intercept': fit.intercept_[0], 'beta': coef[k],
+                         'modelfit': modelfit, 'vif': vifs[k], **nuis})
+    else:
+        row = {'filename': basename, 'sub': sub, 'ses': ses, 'run': run, 'runtype': runtype,
+               'intercept': fit.intercept_[0]}
+        row.update({r: coef[k] for k, r in enumerate(reg_list)})
+        row['modelfit'] = modelfit
+        row.update({f'vif_{r}': v for r, v in zip(reg_list, vifs)})
+        rows.append(row)
+
+    if args.plot:
+        t_sec = np.arange(n) / data_points_per_second
+        heat = np.zeros(n, bool)
+        for a, b in zip(js['event_stimuli']['start'], js['event_stimuli']['stop']):
+            heat[int(a / samplingrate * data_points_per_second):int(b / samplingrate * data_points_per_second)] = True
+        n_heat = len(trial_names) if singletrial else len(stim_list)
+        heat_cue = [tn[2] for tn in trial_names] if singletrial else \
+                   [c.split('-')[1].replace('_cue', '') for c in stim_list]
+        for kind in ('design', 'modelfitted'):
+            fig, ax = plt.subplots(figsize=(11, 3.2))
+            ax.fill_between(t_sec, 0, 1, where=heat, transform=ax.get_xaxis_transform(),
+                            color='#e6e5df', linewidth=0, label='heat')
+            y = Y_r.ravel()
+            ax.plot(t_sec, y, color='#1f1f1e', linewidth=0.6, label='SCL (scaled)')
+            if kind == 'design':
+                lo, hi = np.percentile(y, [1, 99])
+                for k in range(X_r.shape[1]):
+                    is_heat = k < n_heat
+                    high = is_heat and heat_cue[k] == 'high'
+                    ax.plot(t_sec, lo + X_r[:, k] * (hi - lo), linewidth=1,
+                            color=('#eb6834' if high else '#2a78d6') if is_heat else '#9a9890')
+                ax.plot([], [], color='#eb6834', label='heat, high cue')
+                ax.plot([], [], color='#2a78d6', label='heat, low cue')
+                if reg_list:
+                    ax.plot([], [], color='#9a9890', label='cue / rating')
+            else:
+                ax.plot(t_sec, fit.predict(X_r).ravel(), color='#2a78d6', linewidth=1.5,
+                        label=f'model fit (R2 = {modelfit:.2f})')
+            ax.set_xlim(0, t_sec[-1]); ax.set_xlabel('time (s)'); ax.set_ylabel('SCL (run SD units)')
+            ax.set_title(f"{sub} {ses} {run}  {args.model}", loc='left', fontsize=10)
+            ax.spines[['top', 'right']].set_visible(False)
+            ax.legend(loc='upper left', bbox_to_anchor=(1.0, 1.0), frameon=False, fontsize=8)
+            fig.tight_layout()
+            suffix = '' if kind == 'design' else '_modelfitted'
+            fig.savefig(join(plot_dir, basename[:-4] + suffix + '.png'), dpi=110)
+            plt.close(fig)
 
 betadf = pd.DataFrame(rows)
-out = join(save_dir, f'glm-{args.model}_task-{task}_baselinecorrect-{args.baselinecorrect}_scr.tsv')
+tag = '' if outlier == default_outlier else f'_outlier-{outlier.replace("_", "")}'
+out = join(save_dir, f'glm-{args.model}_task-{task}{tag}_baselinecorrect-{args.baselinecorrect}_scr.tsv')
 betadf.to_csv(out, sep='\t')
-print(f"GLM fit: {len(betadf)} runs / {betadf['sub'].nunique()} subs -> {out}")
-if len(betadf):
+n_runs = betadf['filename'].nunique() if len(betadf) else 0
+print(f"GLM fit: {n_runs} runs / {betadf['sub'].nunique() if len(betadf) else 0} subs"
+      f"{f' / {len(betadf)} trials' if singletrial else ''} -> {out}")
+if len(betadf) and singletrial:
+    print(f"single-trial VIF: median {betadf.vif.median():.2f}, max {betadf.vif.max():.2f}")
+elif len(betadf):
     v = betadf.filter(like='vif_')
     print("median VIF per regressor:\n" + v.median().round(2).to_string())
 if skipped:
@@ -225,10 +337,14 @@ if skipped:
 
 with open(out.replace('.tsv', '.json'), 'w') as f:
     json.dump({"source_code": "scripts/p03_glm/glm_allevents_scr.py",
-               "model": args.model, "regressors": reg_list,
+               "model": args.model,
+               "regressors": (['heat per trial'] if singletrial else []) + reg_list,
                "scl_dir": scl_dir, "baselinecorrect": args.baselinecorrect,
                "qc": os.path.abspath(args.qc),
-               "outlier": "MAD>5 set to NaN, linear interpolation",
+               "outlier": {"trim_interp": "MAD>5 set to NaN, linear interpolation",
+                           "winsor_iqr": "capped at Q1-5*IQR / Q3+5*IQR (feature-engine Winsorizer 'iqr')"}[outlier],
+               "outlier_implementation": winsor_impl,
+               "onsets": "exact (not rounded)",
                "scaling": "divide by run SD",
                "regressor": "event boxcars (recorded durations) x PsPM SCRF; design jointly min-max scaled",
                "samplingrate_of_onsettime": 2000, "samplingrate_of_SCL": 25}, f, indent=4)
