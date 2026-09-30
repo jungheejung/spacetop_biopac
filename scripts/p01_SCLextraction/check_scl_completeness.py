@@ -26,7 +26,7 @@ A run is GLM-ready when it has eda + json + tc. Status column:
 
 Run on Discovery (biopac env):
     python check_scl_completeness.py [--qc ../../data/QC_EDA_new.csv] [--subs 30 40 57]
-Writes scl_completeness.csv next to this script.
+Writes scl_completeness.csv next to this script (or --out).
 """
 import argparse, glob, re
 from os.path import join, dirname, abspath, exists
@@ -43,6 +43,7 @@ p.add_argument('--scl-dir', default=join(CUE, 'analysis', 'physio', 'nobaseline'
 p.add_argument('--metadata', default=join(CUE, 'data', 'spacetop_task-social_run-metadata.csv'))
 p.add_argument('--qc', default=join(HERE, '..', '..', 'data', 'QC_EDA_new.csv'))
 p.add_argument('--subs', nargs='+', type=int, help='only these subject numbers')
+p.add_argument('--out', default=join(HERE, 'scl_completeness.csv'), help='output csv')
 a = p.parse_args()
 
 def runs(pattern):
@@ -106,7 +107,7 @@ for sub in subs:
                      error=' '.join(sorted({failed[f] for f in fail}))))
 
 df = pd.DataFrame(rows)
-out = join(HERE, 'scl_completeness.csv')
+out = a.out
 df.to_csv(out, index=False)
 
 pd.set_option('display.width', 200, 'display.max_rows', 500, 'display.max_colwidth', 60)
