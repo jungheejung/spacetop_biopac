@@ -11,6 +11,7 @@ import itertools
 import json
 import logging
 import os
+import shutil
 import sys
 from os.path import join
 from pathlib import Path
@@ -418,9 +419,30 @@ def main():
                         "baselinecorrect_interval":baseline_length,
                         }
             logger.info("__________________ :+: FINISHED :+: __________________\n")
-        except Exception:
+        except Exception as err:
             logger.exception("\t* FAILED - %s %s run-%02d; skipping run", sub, ses_ind, run_ind)
-            flag.append(f"{sub}_ses-{ses_ind:02d}_run-{run_ind:02d}")
+            run_id = f"{sub}_ses-{ses_ind:02d}_run-{run_ind:02d}"
+            flag.append(run_id)
+            # Files written before the failure (e.g. *_physio-eda.txt, *_onset.json with
+            # 0 events) would be picked up by the GLM, which globs physio01_SCL/**.
+            # Move them to a sibling archive dir and log the error.
+            fail_dir = join(output_savedir, 'physio01_SCL_failed')
+            src_dir = join(output_savedir, 'physio01_SCL', sub, f"ses-{ses_ind:02d}")
+            dst_dir = join(fail_dir, sub, f"ses-{ses_ind:02d}")
+            partial = sorted(glob.glob(join(src_dir, f"{run_id}_*")))
+            if partial:
+                Path(dst_dir).mkdir(parents=True, exist_ok=True)
+                for fpath in partial:
+                    shutil.move(fpath, join(dst_dir, os.path.basename(fpath)))
+                logger.error("\t* archived %d partial file(s) -> %s", len(partial), dst_dir)
+            Path(fail_dir).mkdir(parents=True, exist_ok=True)
+            fail_log = join(fail_dir, 'failed_runs.tsv')
+            write_header = not os.path.exists(fail_log)
+            with open(fail_log, 'a') as fl:
+                if write_header:
+                    fl.write("run_id\tdate\terror_type\terror\tn_archived\n")
+                msg = str(err).replace('\t', ' ').replace('\n', ' ')
+                fl.write(f"{run_id}\t{datetime.date.today().isoformat()}\t{type(err).__name__}\t{msg}\t{len(partial)}\n")
             continue
     if flag:
         logger.error("runs skipped after errors: %s", flag)

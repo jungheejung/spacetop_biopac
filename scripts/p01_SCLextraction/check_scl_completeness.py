@@ -12,13 +12,16 @@ is complete and to show where any subject stops:
     json      *_onset.json                                 (GLM onsets)
     tc        *scltimecourse.csv                           (GLM trial metadata)
     qc        runs in QC_EDA_new.csv / of which 'include'
+    failed    BIDS pain runs that failed extraction (physio01_SCL_failed/failed_runs.tsv,
+              written by s01_extractSCL_nobaselinecorrect.py; partial files archived there)
 
 A run is GLM-ready when it has eda + json + tc. Status column:
     OK            GLM-ready runs == BIDS runs
     NO_ACQ        no raw data -> nothing to recover
     NOT_BIDS      raw exists, c02 never split it   -> c02_bidsify_SUBMIT_rerun.sh
     NO_SCL        BIDS exists, no SCL output       -> s01_extractSCL_SUBMIT_rerun.sh
-    PARTIAL       some BIDS runs lack SCL output   -> check that subject's .e log
+    PARTIAL       some BIDS runs lack SCL output and did not fail -> not yet processed
+    FAILED_RUNS   every missing run failed (see 'error') -> data problem, not a job problem
     NEEDS_QC      GLM-ready but no QC rows         -> add to QC_EDA_new.csv
 
 Run on Discovery (biopac env):
@@ -55,6 +58,10 @@ meta = pd.read_csv(a.metadata)
 meta_long = meta.melt(id_vars=['sub', 'ses'], var_name='run', value_name='type')
 expected = meta_long[meta_long['type'] == 'pain'].groupby('sub').size()
 
+fail_log = join(dirname(a.scl_dir.rstrip('/')), 'physio01_SCL_failed', 'failed_runs.tsv')
+failed = pd.read_csv(fail_log, sep='\t') if exists(fail_log) else pd.DataFrame(columns=['run_id', 'error_type'])
+failed = failed.drop_duplicates('run_id', keep='last').set_index('run_id')['error_type']
+
 qc = pd.read_csv(a.qc) if exists(a.qc) else pd.DataFrame(columns=['src_subject_id', 'param_task_name', 'Signal quality'])
 qc = qc[qc['param_task_name'] == 'pain']
 qc['sub'] = qc['src_subject_id'].map(lambda x: f'sub-{int(x):04d}')
@@ -72,6 +79,9 @@ for sub in subs:
     js = runs(join(a.scl_dir, sub, '**', '*runtype-pain_samplingrate-2000_onset.json'))
     tc = runs(join(a.scl_dir, sub, '**', '*runtype-pain_*scltimecourse.csv'))
     ready = eda & js & tc
+    missing = sorted(bids - ready)
+    ids = {(s, r): f'{sub}_ses-{s:02d}_run-{r:02d}' for s, r in missing}
+    fail = [ids[k] for k in missing if ids[k] in failed.index]
     q = qc[qc['sub'] == sub]
     n_inc = int((q['Signal quality'] == 'include').sum())
 
@@ -79,9 +89,11 @@ for sub in subs:
         status = 'NO_ACQ'
     elif not bids:
         status = 'NOT_BIDS'
+    elif missing and len(fail) == len(missing):
+        status = 'FAILED_RUNS'
     elif not ready:
         status = 'NO_SCL'
-    elif len(ready) < len(bids):
+    elif missing:
         status = 'PARTIAL'
     elif q.empty:
         status = 'NEEDS_QC'
@@ -89,8 +101,9 @@ for sub in subs:
         status = 'OK'
     rows.append(dict(sub=sub, expected=int(expected.get(sub, 0)), acq=int(acq), bids=len(bids),
                      eda=len(eda), json=len(js), tc=len(tc), glm_ready=len(ready),
-                     qc_rows=len(q), qc_include=n_inc, status=status,
-                     missing_scl=' '.join(f'ses-{s:02d}_run-{r:02d}' for s, r in sorted(bids - ready))))
+                     qc_rows=len(q), qc_include=n_inc, failed=len(fail), status=status,
+                     missing_scl=' '.join(f'ses-{s:02d}_run-{r:02d}' for s, r in missing),
+                     error=' '.join(sorted({failed[f] for f in fail}))))
 
 df = pd.DataFrame(rows)
 out = join(HERE, 'scl_completeness.csv')
