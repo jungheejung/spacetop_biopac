@@ -17,11 +17,11 @@
 #SBATCH --partition=standard
 #SBATCH --array=30,40,50,60,70,80,90,100,120,130%5
 
-conda activate physio
+conda activate biopac
 
 PREP=/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop_data/scripts/spacetop_prep/physio
 TOPDIR="/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop_data/physio"
-METADATA="/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_social/data/spacetop_task-social_run-metadata.csv"
+METADATA="/dartfs-hpc/rc/lab/C/CANlab/labdata/projects/spacetop_projects_cue/data/spacetop_task-social_run-metadata.csv"
 
 # With the pre-fix sublist(), STRIDE=1 selects nobody -- stop instead of finishing silently.
 if grep -q "slurm_id \* stride + 1" ${PREP}/utils/initialize.py; then
