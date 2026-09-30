@@ -2,6 +2,9 @@
 [google docs](https://docs.google.com/document/d/1MG7KvyxD-4ATWAHJz7R3X1sWljrlrJyaTsE_qUBBRy8/edit)
 
 ## Order of operations
+Step-by-step commands, completeness check, QC and known pitfalls:
+[scripts/p01_SCLextraction/README.md](scripts/p01_SCLextraction/README.md)
+
 1. Convert ACQ files to BIDS format `/dartfs-hpc/rc/lab/C/CANlab/labdata/data/spacetop_data/physio/physio03_bids/task-cue/sub-0104/ses-04`
 2. Preprocess data
    1) First, we exclude outliers using by winsorizing the data with a threshold of 5 median absolute deviation. Anything below or above that threshold was convert to nans and interpolated using scipy's interpolate function.
