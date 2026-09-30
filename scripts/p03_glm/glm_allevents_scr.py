@@ -28,7 +28,9 @@ only the ITI does, as in the fMRI model.
                  (manuscript condition GLM; default for stim/cuestim/allevents)
     winsor_iqr   cap at Q1 - 5*IQR / Q3 + 5*IQR (feature-engine Winsorizer, as in the
                  Oct 2024 glm_singletrial.py; default for singletrial / singletrial_allevents)
-Heat onsets are exact in every model (glm_singletrial.py rounded them to whole seconds).
+Event onsets: exact in the condition models (as glm_factorial_scr.py); rounded to whole
+seconds in the single-trial models (as glm_singletrial.py), so 'singletrial' reproduces
+the old nobaseline/glm_singletrial table.
 
 --plot saves two PNGs per run to <save-dir>/plots/<model>/: the signal with the
 convolved regressors, and the signal with the model fit.
@@ -64,7 +66,9 @@ def extract_meta(basename):
     runtype = re.search(r'runtype-(.*?)_', basename).group(1)
     return sub_ind, ses_ind, run_ind, runtype
 
-def winsorize_mad(data, threshold):
+def trim_mad(data, threshold):
+    """set samples more than threshold x MAD from the median to NaN (trimming, not
+    winsorizing; named winsorize_mad in glm_factorial_scr.py)"""
     median = np.median(data)
     mad = np.median(np.abs(data - median))
     threshold_value = threshold * mad
@@ -111,11 +115,15 @@ def adjust_baseline(data, baseline):
     else:
         return data + abs(baseline)
 
-def event_regressor(js, event, trial_index, n, scr, samplingrate, data_points_per_second, shift_time=0):
-    """boxcar over each selected trial's event duration, convolved with the SCRF"""
+def event_regressor(js, event, trial_index, n, scr, samplingrate, data_points_per_second,
+                    shift_time=0, round_sec=False):
+    """boxcar over each selected trial's event duration, convolved with the SCRF;
+    round_sec rounds onsets/offsets to whole seconds, as glm_singletrial.py (Oct 2024) did"""
     signal = np.zeros(n)
     starts = np.array(js[event]['start'])[trial_index] / samplingrate
     stops = np.array(js[event]['stop'])[trial_index] / samplingrate
+    if round_sec:
+        starts, stops = np.round(starts), np.round(stops)
     for start, stop in zip(starts, stops):
         signal[int((start + shift_time) * data_points_per_second):
                int((stop + shift_time) * data_points_per_second)] = 1
@@ -205,12 +213,12 @@ for scl_fpath in filtered_list:
         js = json.load(json_file)
 
     # remove outlier ___________________________________________________________
-    if outlier == 'trim_interp':
-        winsor_mad = winsorize_mad(pdf, threshold=5)
-        winsor_interp = interpolate_data(winsor_mad.to_numpy().flatten())
-    else:
+    if outlier == 'trim_interp':      # remove samples > 5 MAD from the median, then interpolate
+        trimmed = trim_mad(pdf, threshold=5)
+        clean_signal = interpolate_data(trimmed.to_numpy().flatten())
+    else:                             # cap samples beyond Q1-5*IQR / Q3+5*IQR (no interpolation)
         capped, winsor_impl = winsorize_iqr(pdf, fold=5)
-        winsor_interp = np.asarray(capped, dtype=float).flatten()
+        clean_signal = np.asarray(capped, dtype=float).flatten()
 
     # run-SD scaling + ITI offset ______________________________________________
     # NOTE kept verbatim from glm_factorial_scr.py: the ITI windows use start/25
@@ -219,13 +227,13 @@ for scl_fpath in filtered_list:
     iti_intervals = []
     for i in range(1, len(js['event_cue']['start'])):
         iti_intervals.append((js['event_actualrating']['stop'][i-1], js['event_cue']['start'][i]))
-    winsor_scaled = pd.DataFrame(winsor_interp / np.nanstd(winsor_interp))
+    scaled = pd.DataFrame(clean_signal / np.nanstd(clean_signal))
     averages = []
     for start, stop in iti_intervals:
-        filtered_values = winsor_scaled.loc[start/25:(stop-1)/25] if stop > start else pd.Series(dtype='float64')
+        filtered_values = scaled.loc[start/25:(stop-1)/25] if stop > start else pd.Series(dtype='float64')
         averages.append(np.nanmean(filtered_values))
-    winsor_physio = adjust_baseline(winsor_scaled, np.nanmean(averages))
-    n = len(winsor_physio)
+    scaled_offset = adjust_baseline(scaled, np.nanmean(averages))
+    n = len(scaled_offset)
 
     # metadata _________________________________________________________________
     metadf = pd.read_csv(meta_glob[0])
@@ -241,7 +249,8 @@ for scl_fpath in filtered_list:
             trial_names.append((f"epoch-stim_trial-{t:03d}_cue-{cue_t}_stim-{stim_t}",
                                 f"trial-{t + 1:03d}", cue_t, stim_t))
             total_regressor.append(event_regressor(js, 'event_stimuli', [t], n, scr,
-                                                   samplingrate, data_points_per_second))
+                                                   samplingrate, data_points_per_second,
+                                                   round_sec=True))
     for reg in reg_list:
         if reg in stim_list:
             idx = metadf.loc[metadf['condition'] == reg].index.values
@@ -252,14 +261,15 @@ for scl_fpath in filtered_list:
         else:
             idx = all_trials
             event = f'event_{reg}'
-        total_regressor.append(event_regressor(js, event, idx, n, scr, samplingrate, data_points_per_second))
+        total_regressor.append(event_regressor(js, event, idx, n, scr, samplingrate, data_points_per_second,
+                                               round_sec=singletrial))
 
     Xmatrix = np.vstack(total_regressor)
     normalized_Xmatrix = (Xmatrix - Xmatrix.min()) / (Xmatrix.max() - Xmatrix.min())
 
     # linear regression ________________________________________________________
     X_r = np.array(normalized_Xmatrix).T
-    Y_r = np.array(winsor_physio).reshape(-1, 1)
+    Y_r = np.array(scaled_offset).reshape(-1, 1)
     fit = linear_model.LinearRegression().fit(X_r, Y_r)
 
     modelfit, vifs, coef = fit.score(X_r, Y_r), vif(X_r), fit.coef_[0]
@@ -344,7 +354,7 @@ with open(out.replace('.tsv', '.json'), 'w') as f:
                "outlier": {"trim_interp": "MAD>5 set to NaN, linear interpolation",
                            "winsor_iqr": "capped at Q1-5*IQR / Q3+5*IQR (feature-engine Winsorizer 'iqr')"}[outlier],
                "outlier_implementation": winsor_impl,
-               "onsets": "exact (not rounded)",
+               "onsets": "rounded to whole seconds" if singletrial else "exact",
                "scaling": "divide by run SD",
                "regressor": "event boxcars (recorded durations) x PsPM SCRF; design jointly min-max scaled",
                "samplingrate_of_onsettime": 2000, "samplingrate_of_SCL": 25}, f, indent=4)
